@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Buscador de Processos JusBrasil por Nome</title>
+<title>Buscador de Processos JusBrasil + Reformulador</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   :root {
@@ -25,6 +25,8 @@
     color: var(--text);
     min-height: 100vh;
   }
+
+  /* ============ BUSCADOR ============ */
   .container { max-width: 720px; margin: 40px auto; padding: 0 20px; }
   h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.3px; }
   .subtitle { margin: 0 0 32px; color: var(--muted); }
@@ -74,109 +76,6 @@
     margin: 4px 4px 0 0;
   }
   .examples button:hover { border-color: var(--primary); color: var(--primary); }
-
-  /* === REFORMULADOR === */
-  .reformulador {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px dashed var(--border);
-  }
-  .reformulador-header {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-  }
-  .reformulador-title {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text);
-    font-weight: 700;
-  }
-  .reformulador-subtitle {
-    font-size: 11px;
-    color: var(--muted);
-    flex: 1;
-  }
-  .reformulador-actions {
-    display: flex;
-    gap: 8px;
-  }
-  .reformulador-actions button {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 3px 8px;
-    font-size: 11px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-  .reformulador-actions button:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-  .reformulacoes {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .reformulacao-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.15s;
-    text-align: left;
-    width: 100%;
-    font-family: inherit;
-  }
-  .reformulacao-btn:hover {
-    border-color: var(--primary);
-    background: rgba(90, 42, 130, 0.06);
-    transform: translateX(2px);
-  }
-  .rf-tag {
-    background: var(--primary);
-    color: white;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-weight: 800;
-    font-size: 10px;
-    letter-spacing: 0.3px;
-    min-width: 110px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-  .rf-texto {
-    flex: 1;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--text);
-    font-weight: 500;
-    font-size: 13px;
-    word-break: break-word;
-    min-width: 0;
-  }
-  .rf-desc {
-    color: var(--muted);
-    font-size: 11px;
-    display: none;
-  }
-  .rf-arrow {
-    color: var(--muted);
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  /* === RESULTADO === */
   .resultado {
     margin-top: 20px;
     padding: 16px 18px;
@@ -219,16 +118,201 @@
   .badge.ok { background: var(--ok); }
   .badge.warn { background: var(--warn); }
   .badge.err { background: var(--err); }
-  .hint {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 8px;
-    line-height: 1.4;
+
+  /* ============ DIVISOR ENTRE OS DOIS ============ */
+  .separator {
+    max-width: 1000px;
+    margin: 48px auto 0;
+    padding: 0 20px;
+    text-align: center;
   }
-  footer { margin-top: 32px; text-align: center; font-size: 12px; color: var(--muted); }
+  .separator hr {
+    border: none;
+    border-top: 2px dashed #cbd5e1;
+    margin-bottom: 14px;
+  }
+  .separator .label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 0 14px;
+    position: relative;
+    top: -22px;
+  }
+</style>
+
+<!-- ========================================================== -->
+<!-- ESTILOS DO REFORMULADOR EQUIPE FANTASMA, ESCOPADOS A #rf-tool -->
+<!-- Tudo dentro de <section id="rf-tool"> para não conflitar   -->
+<!-- com os estilos do buscador acima.                           -->
+<!-- ========================================================== -->
+<style>
+  #rf-tool { background: #eef0f8; padding: 28px 16px 48px; color: #1a1a2e; font-family: 'Segoe UI', Tahoma, sans-serif; }
+
+  #rf-tool *, #rf-tool *::before, #rf-tool *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  #rf-tool header { text-align: center; margin-bottom: 28px; }
+  #rf-tool header h1 {
+    font-size: 1.65rem; color: #3a3aff;
+    display: inline-flex; align-items: baseline; gap: 8px;
+  }
+  #rf-tool .by-tag {
+    font-size: 0.58rem; font-weight: 600; color: #9999cc;
+    background: #eef0ff; padding: 2px 7px; border-radius: 20px;
+  }
+  #rf-tool .sub-title {
+    font-size: 1rem; font-weight: 600; color: #5555aa; margin-top: 6px;
+  }
+  #rf-tool header p {
+    color: #888; font-size: 0.85rem; margin-top: 4px;
+  }
+
+  #rf-tool .grid {
+    max-width: 980px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media(max-width: 680px) { #rf-tool .grid { grid-template-columns: 1fr; } }
+
+  #rf-tool .rf-card {
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.09);
+    padding: 22px;
+  }
+  #rf-tool .card-title {
+    font-size: 0.95rem; font-weight: 700; color: #3a3aff; margin-bottom: 16px;
+  }
+  #rf-tool label {
+    display: block; font-size: 0.74rem; font-weight: 700;
+    color: #777; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 5px;
+  }
+  #rf-tool textarea, #rf-tool input[type="text"] {
+    width: 100%; border: 1.5px solid #dde1f0; border-radius: 8px;
+    padding: 9px 12px; font-size: 0.88rem; color: #1a1a2e;
+    background: #f7f8ff; outline: none;
+    transition: border 0.2s; margin-bottom: 14px;
+    font-family: inherit;
+  }
+  #rf-tool textarea:focus, #rf-tool input:focus {
+    border-color: #3a3aff; background: #fff;
+  }
+  #rf-tool #rawText { min-height: 320px; resize: vertical; }
+  #rf-tool #rawPhone { min-height: 110px; resize: vertical; }
+
+  #rf-tool .hint {
+    font-size: 0.76rem; color: #aaa; margin-top: -10px; margin-bottom: 14px;
+  }
+  #rf-tool .actions { display: flex; gap: 10px; margin-top: 4px; }
+
+  #rf-tool button {
+    flex: 1; padding: 11px 10px; border: none; border-radius: 9px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    transition: transform .1s; color: inherit; background: transparent;
+  }
+  #rf-tool button:active { transform: scale(0.97); }
+
+  #rf-tool .btn-reformular { background: linear-gradient(135deg,#3a3aff,#7b61ff); color: #fff; }
+  #rf-tool .btn-limpar { background: #eef0f8; color: #888; }
+  #rf-tool .btn-copy { flex: unset; padding: 8px 20px; background: #00b894; color: #fff; border-radius: 8px; font-size: 0.85rem; }
+
+  /* OUTPUT */
+  #rf-tool .output-wrap { grid-column: 1 / -1; display: none; }
+  #rf-tool .output-card { background: #fff; border-radius: 14px; box-shadow: 0 3px 14px rgba(0,0,0,0.09); padding: 24px; }
+  #rf-tool .out-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+
+  #rf-tool .result-box {
+    background: #f7f8ff; border: 1.5px solid #dde1f0; border-radius: 10px;
+    padding: 20px 24px; font-size: 0.93rem; line-height: 1.9;
+    white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, sans-serif;
+    color: #1a1a2e;
+  }
+
+  #rf-tool .copy-ok {
+    color: #00b894; font-size: 0.82rem; font-weight: 700;
+    margin-top: 10px; display: none;
+  }
+
+  /* WhatsApp */
+  #rf-tool .whatsapp-section { margin-top: 28px; border-top: 2px dashed #e0e4f5; padding-top: 22px; }
+  #rf-tool .whatsapp-title { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 700; color: #128c7e; margin-bottom: 6px; }
+  #rf-tool .whatsapp-subtitle { font-size: 0.8rem; color: #aaa; margin-bottom: 18px; }
+
+  #rf-tool .greeting-label, #rf-tool .contacts-label {
+    font-size: 0.74rem; font-weight: 700; color: #777;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #rf-tool .greeting-label { margin-bottom: 10px; }
+  #rf-tool .contacts-label { margin-bottom: 10px; }
+
+  #rf-tool .greeting-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+
+  #rf-tool .btn-greet {
+    flex: none; padding: 10px 20px; border: none; border-radius: 10px;
+    font-size: 0.88rem; font-weight: 700; cursor: pointer; color: #fff;
+    transition: transform .1s, filter .15s; display: flex; align-items: center; gap: 7px;
+  }
+  #rf-tool .btn-greet:hover { filter: brightness(1.1); }
+  #rf-tool .btn-greet:active { transform: scale(0.96); }
+  #rf-tool .btn-bom-dia   { background: linear-gradient(135deg, #f6a623, #f5841f); }
+  #rf-tool .btn-boa-tarde { background: linear-gradient(135deg, #e05252, #c0392b); }
+  #rf-tool .btn-boa-noite { background: linear-gradient(135deg, #3a3aff, #5b2d8e); }
+
+  #rf-tool .contacts-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  #rf-tool .contact-card {
+    background: #f0fff9; border: 1.5px solid #b2dfdb; border-radius: 11px;
+    padding: 12px 16px; display: flex; flex-direction: column; gap: 6px;
+    min-width: 180px;
+  }
+  #rf-tool .contact-number { font-size: 0.95rem; font-weight: 700; color: #1a1a2e; }
+  #rf-tool .contact-type { font-size: 0.72rem; color: #128c7e; font-weight: 600; text-transform: uppercase; }
+
+  #rf-tool .btn-zap {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; background: #25d366; color: #fff;
+    border: none; border-radius: 8px; font-size: 0.82rem; font-weight: 700;
+    cursor: pointer; text-decoration: none; transition: filter .15s;
+  }
+  #rf-tool .btn-zap:hover { filter: brightness(1.1); }
+  #rf-tool .no-phones { font-size: 0.85rem; color: #bbb; font-style: italic; }
+
+  /* PJE */
+  #rf-tool .pje-section { margin-top: 28px; border-top: 2px dashed #e0e4f5; padding-top: 22px; }
+  #rf-tool .pje-title { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 700; color: #3a3aff; margin-bottom: 4px; }
+  #rf-tool .pje-subtitle { font-size: 0.8rem; color: #aaa; margin-bottom: 16px; }
+  #rf-tool .pje-card {
+    background: linear-gradient(135deg, #eef0ff, #f5f0ff);
+    border: 1.5px solid #c5c8ff; border-radius: 13px; padding: 18px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+  }
+  #rf-tool .pje-card-left { display: flex; flex-direction: column; gap: 5px; }
+  #rf-tool .pje-tribunal-name { font-size: 1rem; font-weight: 800; color: #3a3aff; }
+  #rf-tool .pje-url-text { font-size: 0.78rem; color: #666; word-break: break-all; max-width: 480px; }
+  #rf-tool .pje-instruction { font-size: 0.8rem; color: #5a5a8a; background: #eef0ff; border-left: 3px solid #7b61ff; border-radius: 0 6px 6px 0; padding: 7px 12px; margin-top: 8px; line-height: 1.6; max-width: 480px; }
+  #rf-tool .pje-not-found { background: #fff8e1; border: 1.5px solid #ffe082; border-radius: 13px; padding: 14px 18px; font-size: 0.88rem; color: #888; font-style: italic; }
+  #rf-tool .btn-pje {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 20px; background: linear-gradient(135deg, #3a3aff, #7b61ff);
+    color: #fff; border: none; border-radius: 9px; font-size: 0.88rem;
+    font-weight: 700; cursor: pointer; text-decoration: none;
+    transition: filter .15s; white-space: nowrap;
+  }
+  #rf-tool .btn-pje:hover { filter: brightness(1.12); }
+
+  /* Mensagem */
+  #rf-tool .msg-preview { background: #e7f9ef; border: 1.5px solid #b2dfdb; border-radius: 10px; padding: 14px 18px; font-size: 0.88rem; color: #1a1a2e; margin-top: 16px; white-space: pre-wrap; line-height: 1.7; }
+  #rf-tool .msg-preview-label { font-size: 0.74rem; font-weight: 700; color: #128c7e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  #rf-tool .selected-greet-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  #rf-tool .selected-greet-badge { background: #d4edda; color: #128c7e; font-weight: 700; font-size: 0.82rem; padding: 4px 12px; border-radius: 20px; }
 </style>
 </head>
 <body>
+
+<!-- ================================================================== -->
+<!-- BUSCADOR  (topo da página)                                         -->
+<!-- ================================================================== -->
 <div class="container">
   <h1>🔎 Buscador de Processos JusBrasil</h1>
   <p class="subtitle">Cole o nome completo e receba o link exato da página JusBrasil com todos os processos encontrados.</p>
@@ -243,37 +327,117 @@
       <button type="button" data-nome="JAMILA DRIELLY MOURA OLIVEIRA">Jamila Drielly</button>
       <button type="button" data-nome="João da Silva Santos">João da Silva</button>
     </div>
-
-    <!-- ============================================== -->
-    <!-- REFORMULADOR — fica abaixo do buscador          -->
-    <!-- ============================================== -->
-    <div id="reformulador" class="reformulador" hidden>
-      <div class="reformulador-header">
-        <span class="reformulador-title">💡 Reformulador de nomes</span>
-        <span class="reformulador-subtitle">clique numa variação para buscá-la</span>
-        <div class="reformulador-actions">
-          <button type="button" id="rf-toggle" title="Mostrar/ocultar descrições">ℹ️ Detalhes</button>
-        </div>
-      </div>
-      <div id="reformulacoes" class="reformulacoes"></div>
-      <p class="hint">As variações cobrem erros comuns: capitalização, acentos, preposições, ordem dos nomes, sufixos (FILHO/JÚNIOR/NETO).</p>
-    </div>
-
     <div id="resultado"></div>
   </div>
-
-  <footer>
-    Resultados vêm do Google via filtro <code>site:jusbrasil.com.br</code>. Sem dados armazenados.
-  </footer>
 </div>
 
+<!-- ================================================================== -->
+<!-- DIVISOR                                                            -->
+<!-- ================================================================== -->
+<div class="separator">
+  <hr>
+  <span class="label">⬇ Reformulador de Processos Jurídicos (abaixo) ⬇</span>
+</div>
+
+<!-- ================================================================== -->
+<!-- EQUIPE FANTASMA — REFORMULADOR DE PROCESSOS (abaixo do buscador)   -->
+<!-- Todo o conteúdo abaixo está dentro de <section id="rf-tool">       -->
+<!-- então nenhum dos estilos acima afeta nem é afetado.                -->
+<!-- ================================================================== -->
+<section id="rf-tool">
+
+<header>
+  <h1>⚖️ Equipe Fantasma<span class="by-tag">By Tz.D7</span></h1>
+  <h2 class="sub-title">Reformulador de Processos Jurídicos</h2>
+  <p>Cole o texto bruto do processo, adicione CPF e telefones — gere o modelo formatado.</p>
+</header>
+
+<div class="grid">
+
+  <!-- COLAR TEXTO DO PROCESSO -->
+  <div class="rf-card">
+    <div class="card-title">📋 Cole o texto do processo aqui</div>
+    <textarea id="rawText" placeholder="Cole aqui o texto completo do processo jurídico..."></textarea>
+  </div>
+
+  <!-- DADOS COMPLEMENTARES -->
+  <div class="rf-card">
+    <div class="card-title">➕ Dados Complementares</div>
+
+    <label>CPF do Autor</label>
+    <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14"/>
+
+    <label>📞 Cole o texto com os telefones</label>
+    <textarea id="rawPhone" placeholder="Ex:&#10;(51) 99675-7331&#10;51997001234&#10;+55 51 98888-0000"></textarea>
+    <p class="hint">* Os números serão extraídos e formatados automaticamente.</p>
+
+    <div class="actions">
+      <button class="btn-reformular" onclick="reformular()">✨ Reformular</button>
+      <button class="btn-limpar" onclick="limpar()">🗑 Limpar</button>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="output-wrap" id="outputWrap">
+    <div class="output-card">
+      <div class="out-header">
+        <div class="card-title" style="margin:0;">📄 Resultado Formatado</div>
+        <button class="btn-copy" onclick="copiar()">📋 Copiar</button>
+      </div>
+      <div class="result-box" id="resultBox"></div>
+      <p class="copy-ok" id="copyOk">✅ Copiado com sucesso!</p>
+
+      <!-- ── SEÇÃO WHATSAPP ── -->
+      <div class="whatsapp-section" id="whatsappSection">
+        <div class="whatsapp-title">
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#25d366"/><path d="M23.5 8.5A10 10 0 0 0 6.3 20.6L5 27l6.6-1.7a10 10 0 0 0 4.8 1.2h.1A10 10 0 0 0 23.5 8.5zm-7 15.4a8.3 8.3 0 0 1-4.2-1.1l-.3-.2-3.1.8.8-3-.2-.3a8.3 8.3 0 1 1 7 3.8zm4.6-6.2c-.3-.1-1.6-.8-1.8-.9s-.4-.1-.6.1-.7.9-.8 1.1-.3.2-.6 0a7.2 7.2 0 0 1-2.1-1.3 7.8 7.8 0 0 1-1.5-1.8c-.1-.3 0-.5.1-.6l.4-.5.3-.4v-.4l-.9-2.1c-.2-.5-.4-.5-.6-.5h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.5 4 14 14 0 0 0 1.5.6 3.6 3.6 0 0 0 1.6.1 2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" fill="#fff"/></svg>
+          Chamar no WhatsApp
+        </div>
+        <div class="whatsapp-subtitle">Selecione a saudação e clique no número para abrir o WhatsApp já com a mensagem.</div>
+
+        <div class="greeting-label">Escolha a saudação</div>
+        <div class="greeting-row">
+          <button class="btn-greet btn-bom-dia"   onclick="selecionarSaudacao('bom-dia')"  >Bom dia!</button>
+          <button class="btn-greet btn-boa-tarde"  onclick="selecionarSaudacao('boa-tarde')" >Boa tarde!</button>
+          <button class="btn-greet btn-boa-noite"  onclick="selecionarSaudacao('boa-noite')" >Boa noite!</button>
+        </div>
+
+        <div id="msgPreviewWrap" style="display:none; margin-bottom:18px;">
+          <div class="msg-preview-label">💬 Mensagem que será enviada</div>
+          <div class="selected-greet-row">
+            <span class="selected-greet-badge" id="greetBadge"></span>
+          </div>
+          <div class="msg-preview" id="msgPreview"></div>
+        </div>
+
+        <div class="contacts-label">📱 Clique no número para abrir o WhatsApp</div>
+        <div class="contacts-grid" id="contactsGrid"></div>
+
+        <div class="pje-section" id="pjeSection" style="display:none;">
+          <div class="pje-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3a3aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+            Consulta Pública PJE
+          </div>
+          <div class="pje-subtitle">Tribunal de origem detectado — acesse diretamente o PJE.</div>
+          <div id="pjeContent"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</section><!-- /#rf-tool -->
+
 <script>
-  const form  = document.getElementById('form');
-  const input = document.getElementById('nome');
-  const btn   = document.getElementById('btn');
-  const out   = document.getElementById('resultado');
-  const reformuladorEl = document.getElementById('reformulador');
-  const reformulacoesEl = document.getElementById('reformulacoes');
+  /* ==================================================================== */
+  /* BUSCADOR  (topo)                                                     */
+  /* ==================================================================== */
+  const formB = document.getElementById('form');
+  const inputB = document.getElementById('nome');
+  const btnB   = document.getElementById('btn');
+  const outB   = document.getElementById('resultado');
 
   const LABELS = {
     exact_slug_match:           ['Match exato',                    'ok'],
@@ -282,207 +446,432 @@
     no_jusbrasil_url_in_results:['Sem página JusBrasil',          'err'],
   };
 
-  let showDesc = false;
-
   document.querySelectorAll('.examples button').forEach(b => {
     b.addEventListener('click', () => {
-      input.value = b.dataset.nome;
-      input.focus();
-      renderReformulations();
+      inputB.value = b.dataset.nome;
+      inputB.focus();
     });
   });
 
-  document.getElementById('rf-toggle').addEventListener('click', () => {
-    showDesc = !showDesc;
-    document.querySelectorAll('.rf-desc').forEach(el => {
-      el.style.display = showDesc ? 'inline' : 'none';
-    });
-    const btn = document.getElementById('rf-toggle');
-    btn.textContent = showDesc ? '🙈 Ocultar' : 'ℹ️ Detalhes';
-  });
-
-  // =================================================
-  // REFORMULADOR — gera variações do nome digitado
-  // =================================================
-  function generateReformulations(nome) {
-    if (!nome || nome.trim().length < 3) return [];
-    const original = nome.trim();
-
-    const variants = [];
-    const seen = new Set([original.toLowerCase()]);
-
-    function add(label, query, description) {
-      const q = (query || '').trim();
-      if (q.length < 3) return;
-      const key = q.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      variants.push({ label, query: q, description });
-    }
-
-    const upper = original.toUpperCase();
-    add('MAIÚSCULAS', upper, 'Padroniza em MAIÚSCULAS (formato JusBrasil).');
-
-    const noAccent = original.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    if (noAccent !== upper) {
-      add('SEM ACENTO', noAccent, 'Remove acentos e cedilha (ç, á, ã, …).');
-    }
-
-    const noPreps = upper
-      .replace(/\b(D|DE|DA|DO|DAS|DOS)\b\s*/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (noPreps !== upper) {
-      add('SEM PREPOSIÇÃO', noPreps, 'Remove de, da, do, das, dos.');
-    }
-
-    const parts = upper.split(/\s+/).filter(Boolean);
-
-    if (parts.length >= 3) {
-      const first_last = [parts[0], parts[parts.length - 1]].join(' ');
-      add('PRIM + ÚLT', first_last, 'Mantém só o primeiro e o último nome.');
-    }
-
-    if (parts.length >= 2) {
-      const reversed = parts.slice().reverse().join(' ');
-      add('INVERTIDO', reversed, 'Sobrenome vem primeiro (sem vírgula).');
-      add('INV. VÍRGULA', parts.slice().reverse().join(', '), 'Formato "Sobrenome, Nome".');
-    }
-
-    const titled = original
-      .toLowerCase()
-      .split(/\s+/)
-      .map(w => {
-        if (!w) return w;
-        // preposições ficam minúsculas em formato Título
-        const u = w.toUpperCase();
-        if (['DE', 'DA', 'DO', 'DAS', 'DOS', 'E'].includes(u)) return w.toLowerCase();
-        return w.charAt(0).toUpperCase() + w.slice(1);
-      })
-      .join(' ');
-    if (titled !== original && titled.toUpperCase() !== upper) {
-      add('TÍTULO', titled, 'Cada nome com inicial maiúscula; preposições em minúscula.');
-    }
-
-    // Adiciona sufixos comuns usados em varas cíveis/trabalhistas
-    ['FILHO', 'JUNIOR', 'NETO'].forEach(suf => {
-      const upperSuf = suf.toUpperCase();
-      if (!upper.endsWith(' ' + upperSuf)) {
-        add('+ ' + upperSuf, upper + ' ' + upperSuf, 'Adiciona "' + suf + '" no final.');
-      }
-    });
-
-    // Remove sufixos terminais (se o usuário digitou "FILHO" sem precisar)
-    ['FILHO', 'JUNIOR', 'JÚNIOR', 'NETO', 'SOBRINHO'].forEach(suf => {
-      const upperSuf = suf.toUpperCase();
-      const stripped = upper.replace(new RegExp('\\s+' + upperSuf + '\\s*$'), '').trim();
-      if (stripped !== upper && stripped.length >= 3) {
-        add('SEM ' + upperSuf, stripped, 'Remove "' + suf + '" do final.');
-      }
-    });
-
-    return variants.slice(0, 10); // limite para não poluir
-  }
-
-  function renderReformulations() {
-    const variants = generateReformulations(input.value);
-    if (!variants.length) {
-      reformuladorEl.hidden = true;
-      reformulacoesEl.innerHTML = '';
-      return;
-    }
-    reformulacoesEl.innerHTML = variants.map(v => `
-      <button type="button" class="reformulacao-btn" data-query="${escape(v.query)}" title="${escape(v.description)}">
-        <span class="rf-tag">${escape(v.label)}</span>
-        <span class="rf-texto">${escape(v.query)}</span>
-        <span class="rf-desc">${escape(v.description)}</span>
-        <span class="rf-arrow">→</span>
-      </button>
-    `).join('');
-    reformuladorEl.hidden = false;
-
-    reformulacoesEl.querySelectorAll('button').forEach(b => {
-      b.addEventListener('click', () => {
-        input.value = b.dataset.query;
-        renderReformulations();
-        form.dispatchEvent(new Event('submit'));
-      });
-    });
-  }
-
-  input.addEventListener('input', renderReformulations);
-
-  // =================================================
-  // BUSCA
-  // =================================================
-  form.addEventListener('submit', async (e) => {
+  formB.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nome = input.value.trim();
+    const nome = inputB.value.trim();
     if (nome.length < 3) return;
-
-    btn.disabled = true;
-    btn.textContent = 'Buscando…';
-    out.innerHTML = '';
-
+    btnB.disabled = true;
+    btnB.textContent = 'Buscando…';
+    outB.innerHTML = '';
     try {
-      const url = `/api/search?nome=${encodeURIComponent(nome)}`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/search?nome=${encodeURIComponent(nome)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      render(data);
+      renderBuscador(data);
     } catch (err) {
-      out.innerHTML = `<div class="resultado err"><strong>Erro:</strong> ${escape(err.message)}</div>`;
+      outB.innerHTML = `<div class="resultado err"><strong>Erro:</strong> ${escapeB(err.message)}</div>`;
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Buscar';
+      btnB.disabled = false;
+      btnB.textContent = 'Buscar';
     }
   });
 
-  function render(data) {
+  function renderBuscador(data) {
     const url = data.jusbrasil_url;
     const cls = (url && data.match_quality === 'exact_slug_match') ? 'ok'
               : (data.match_quality === 'no_jusbrasil_url_in_results') ? 'err'
               : 'warn';
     const [label, badgeCls] = LABELS[data.match_quality] || [data.match_quality, 'warn'];
-
     let html = `<div class="resultado ${cls}">`;
     if (url) {
       const totalTxt = data.total_processos != null
-        ? `, com <strong>${data.total_processos.toLocaleString('pt-BR')}</strong> processos`
-        : '';
+        ? `, com <strong>${data.total_processos.toLocaleString('pt-BR')}</strong> processos` : '';
       html += `
         <strong>Página JusBrasil encontrada</strong>
-        <span class="badge ${badgeCls}">${escape(label)}</span>${totalTxt}
-        <a class="url-display" href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(url)}</a>
+        <span class="badge ${badgeCls}">${escapeB(label)}</span>${totalTxt}
+        <a class="url-display" href="${escapeB(url)}" target="_blank" rel="noopener noreferrer">${escapeB(url)}</a>
         <dl class="details">
-          <dt>Nome buscado:</dt>     <dd>${escape(data.nome)}</dd>
-          <dt>Slug JusBrasil:</dt>   <dd><code>${escape(data.slug)}</code></dd>
-          <dt>Query Google:</dt>     <dd><code>${escape(data.google_query)}</code></dd>
+          <dt>Nome buscado:</dt>     <dd>${escapeB(data.nome)}</dd>
+          <dt>Slug JusBrasil:</dt>   <dd><code>${escapeB(data.slug)}</code></dd>
+          <dt>Query Google:</dt>     <dd><code>${escapeB(data.google_query)}</code></dd>
         </dl>`;
-      if (cls !== 'ok') {
-        html += `<p class="hint">⚠️ Match parcial — confirme o nome ou tente as variações do reformulador acima.</p>`;
-      }
     } else {
       html += `
         <strong>O JusBrasil não parece ter página agregada para esse nome.</strong>
-        <span class="badge ${badgeCls}">${escape(label)}</span>
-        <p>Tente as variações do reformulador acima ☝️ ou reformule manualmente.</p>`;
+        <span class="badge ${badgeCls}">${escapeB(label)}</span>`;
     }
     html += '</div>';
-    out.innerHTML = html;
+    outB.innerHTML = html;
   }
 
-  function escape(s) {
+  function escapeB(s) {
     return String(s).replace(/[&<>"']/g, c => ({
       '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
     })[c]);
   }
 
-  // render inicial (caso tenha cache/autofill)
-  renderReformulations();
+  /* ==================================================================== */
+  /* EQUIPE FANTASMA — REFORMULADOR (abaixo)                              */
+  /* ==================================================================== */
+  (function() {
+    let _nomeCliente  = '';
+    let _celulares    = [];
+    let _fixos        = [];
+    let _saudacaoAtual = '';
+
+    function formatarTel(raw) {
+      let d = raw.replace(/\D/g, '');
+      if ((d.length === 13 || d.length === 12) && d.startsWith('55')) d = d.slice(2);
+      if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+      if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+      return raw.trim();
+    }
+
+    function isCelular(fmt) {
+      const d = fmt.replace(/\D/g, '');
+      const local = d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+      return local.length === 11 && local[2] === '9';
+    }
+
+    function extrairTelefones(texto) {
+      const regex = /(?:\+?55[\s.-]?)?(?:\(?\d{2}\)?[\s.-]?)?\d{4,5}[\s.-]?\d{4}/g;
+      const matches = texto.match(regex) || [];
+      const vistos = new Set();
+      const celulares = [];
+      const fixos = [];
+      for (const m of matches) {
+        const fmt = formatarTel(m);
+        if (!vistos.has(fmt)) {
+          vistos.add(fmt);
+          if (isCelular(fmt)) celulares.push(fmt);
+          else fixos.push(fmt);
+        }
+      }
+      return { celulares, fixos };
+    }
+
+    function toWaNumber(fmt) {
+      let d = fmt.replace(/\D/g, '');
+      if (!d.startsWith('55')) d = '55' + d;
+      return d;
+    }
+
+    const lim = s => s.replace(/\s+/g,' ').trim();
+    function extrair(t, pats) {
+      for (const p of pats) {
+        const m = t.match(p);
+        if (m) return lim(m[1] || m[0]);
+      }
+      return '';
+    }
+
+    function parse(raw) {
+      const t = raw;
+      const processo = extrair(t, [
+        /Processo\s+n[°º.]?\s*([\d\-\.]+)/i,
+        /(\d{7}-\d{2}\.\d{4}\.\d{1,2}\.\d{2}\.\d{4})/
+      ]);
+      const valor = extrair(t, [
+        /Valor da causa\s+(R\$\s*[\d.,]+)/i,
+        /Valor\s+(R\$\s*[\d.,]+)/i
+      ]);
+      const assunto = extrair(t, [
+        /Assunto\s+([^\n]+(?:\n(?!Tribunal|Juiz|Início|Natureza|Poder|Polo|Envolvidos)[^\n]+)*)/i
+      ]);
+      const tribunal = extrair(t, [
+        /Tribunal de origem\s+([^\n]+)/i,
+        /Tribunal\s+([^\n]+)/i
+      ]);
+      const juiz = extrair(t, [
+        /Juiz[oa]?\s+([^\n]+)/i
+      ]);
+
+      let autor = '';
+      const blocoAtivo = t.match(/Polo\s+Ativo([\s\S]*?)(?=Polo\s+Passivo|$)/i);
+      if (blocoAtivo) {
+        const linhas = blocoAtivo[1].split('\n').map(l => l.trim()).filter(Boolean);
+        for (let i = 0; i < linhas.length; i++) {
+          if (/^autor$/i.test(linhas[i]) && i > 0) { autor = linhas[i-1]; break; }
+        }
+        if (!autor && linhas.length > 0) autor = linhas[0];
+      }
+
+      const partes = [];
+      const rotulos = /^(polo\s+passivo|polo\s+ativo|parte\s+passiva|parte\s+ativa|autor|autora|advogado|advogada|r[eé]u|r[eé]|executad[oa]|impetrad[oa]|requerido|requerida|envolvidos|terceiro|interessado|litisconsorte|assistente)$/i;
+      const blocoPassivo = t.match(/Polo\s+Passivo([\s\S]*?)(?=Polo\s+Ativo|Envolvidos|\n{4,}|$)/i);
+      if (blocoPassivo) {
+        const linhas = blocoPassivo[1].split('\n').map(l => l.trim()).filter(Boolean);
+        for (let i = 0; i < linhas.length; i++) {
+          if (/parte\s+passiva|r[eé]u|r[eé]$|executad[oa]|requerido/i.test(linhas[i]) && i > 0) {
+            const candidato = linhas[i-1];
+            if (!rotulos.test(candidato) && !partes.includes(candidato)) partes.push(candidato);
+          }
+        }
+        if (partes.length === 0) {
+          for (const linha of linhas) {
+            if (!rotulos.test(linha) && linha.length > 2) partes.push(linha);
+          }
+        }
+      }
+      const poloPassivo = partes.join(' / ');
+      return { processo, valor, assunto, tribunal, juiz, autor, poloPassivo };
+    }
+
+    function primeiroNome(nomeCompleto) {
+      if (!nomeCompleto) return 'Cliente';
+      const limpo = nomeCompleto.replace(/^(sr\.?|sra\.?|dr\.?|dra\.?)\s*/i, '').trim();
+      return limpo.split(/\s+/)[0];
+    }
+
+    function montarTexto(d, cpf, tels) {
+      const linhas = [];
+      if (d.processo)    linhas.push(`Número do Processo: ${d.processo}`);
+      if (d.valor)       linhas.push(`Valor da Causa: ${d.valor}`);
+      if (d.assunto)     linhas.push(`Assunto: ${d.assunto}`);
+      if (d.tribunal)    linhas.push(`Tribunal de Origem: ${d.tribunal}`);
+      if (d.juiz)        linhas.push(`Juiz(a): ${d.juiz}`);
+      linhas.push('');
+      if (d.poloPassivo) linhas.push(`Polo Passivo — Parte Passiva: ${d.poloPassivo}`);
+      if (d.autor)       linhas.push(`Polo Ativo — Autor: ${d.autor}`);
+      if (cpf)           linhas.push(`CPF: ${cpf}`);
+      if (tels.celulares.length > 0) {
+        linhas.push('');
+        linhas.push('📱 Celular');
+        tels.celulares.forEach(n => linhas.push(n));
+      }
+      if (tels.fixos.length > 0) {
+        linhas.push('');
+        linhas.push('☎️ Fixo');
+        tels.fixos.forEach(n => linhas.push(n));
+      }
+      return linhas.join('\n');
+    }
+
+    const PJE_MAP = [
+      { siglas: ['TRF1','TRF-1','TRIBUNAL REGIONAL FEDERAL DA 1'],  nome: 'TRF 1ª Região', url: 'https://pje1g-consultapublica.trf1.jus.br/consultapublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRF2','TRF-2','TRIBUNAL REGIONAL FEDERAL DA 2'],  nome: 'TRF 2ª Região (eProc)', url: 'https://eproc.trf2.jus.br/eproc/externo_controlador.php?acao=processo_consulta_publica' },
+      { siglas: ['TRF3','TRF-3','TRIBUNAL REGIONAL FEDERAL DA 3'],  nome: 'TRF 3ª Região', url: 'https://pje.trf3.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TRF4','TRF-4','TRIBUNAL REGIONAL FEDERAL DA 4'],  nome: 'TRF 4ª Região (eProc)', url: 'https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_consulta_publica' },
+      { siglas: ['TRF5','TRF-5','TRIBUNAL REGIONAL FEDERAL DA 5'],  nome: 'TRF 5ª Região — PJE 2G (JEFs)', url: 'https://pje1g.trf5.jus.br/pjeconsulta/ConsultaPublica/listView.seam' },
+      { siglas: ['TRF6','TRF-6','TRIBUNAL REGIONAL FEDERAL DA 6'],  nome: 'TRF 6ª Região', url: 'https://pje.trf6.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TST','TRIBUNAL SUPERIOR DO TRABALHO'],            nome: 'TST', url: 'https://pje.tst.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['STJ','SUPERIOR TRIBUNAL DE JUSTIÇA'],             nome: 'STJ', url: 'https://processo.stj.jus.br/processo/pesquisa/' },
+      { siglas: ['STF','SUPREMO TRIBUNAL FEDERAL'],                 nome: 'STF', url: 'https://portal.stf.jus.br/processos/pesquisar.asp' },
+      { siglas: ['TRT1','TRT-1','TRT 1'],   nome: 'TRT 1ª Região (RJ)',  url: 'https://pje.trt1.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT2','TRT-2','TRT 2'],   nome: 'TRT 2ª Região (SP)',  url: 'https://pje.trt2.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT3','TRT-3','TRT 3'],   nome: 'TRT 3ª Região (MG)',  url: 'https://pje.trt3.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT4','TRT-4','TRT 4'],   nome: 'TRT 4ª Região (RS)',  url: 'https://pje.trt4.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT5','TRT-5','TRT 5'],   nome: 'TRT 5ª Região (BA)',  url: 'https://pje.trt5.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT6','TRT-6','TRT 6'],   nome: 'TRT 6ª Região (PE)',  url: 'https://pje.trt6.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT7','TRT-7','TRT 7'],   nome: 'TRT 7ª Região (CE)',  url: 'https://pje.trt7.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT8','TRT-8','TRT 8'],   nome: 'TRT 8ª Região (PA/AP)', url: 'https://pje.trt8.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT9','TRT-9','TRT 9'],   nome: 'TRT 9ª Região (PR)',  url: 'https://pje.trt9.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT10','TRT-10','TRT 10'],nome: 'TRT 10ª Região (DF/TO)', url: 'https://pje.trt10.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT11','TRT-11','TRT 11'],nome: 'TRT 11ª Região (AM/RR)', url: 'https://pje.trt11.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT12','TRT-12','TRT 12'],nome: 'TRT 12ª Região (SC)', url: 'https://pje.trt12.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT13','TRT-13','TRT 13'],nome: 'TRT 13ª Região (PB)', url: 'https://pje.trt13.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT14','TRT-14','TRT 14'],nome: 'TRT 14ª Região (RO/AC)', url: 'https://pje.trt14.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT15','TRT-15','TRT 15'],nome: 'TRT 15ª Região (Campinas)', url: 'https://pje.trt15.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT16','TRT-16','TRT 16'],nome: 'TRT 16ª Região (MA)', url: 'https://pje.trt16.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT17','TRT-17','TRT 17'],nome: 'TRT 17ª Região (ES)', url: 'https://pje.trt17.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT18','TRT-18','TRT 18'],nome: 'TRT 18ª Região (GO)', url: 'https://pje.trt18.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT19','TRT-19','TRT 19'],nome: 'TRT 19ª Região (AL)', url: 'https://pje.trt19.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT20','TRT-20','TRT 20'],nome: 'TRT 20ª Região (SE)', url: 'https://pje.trt20.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT21','TRT-21','TRT 21'],nome: 'TRT 21ª Região (RN)', url: 'https://pje.trt21.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT22','TRT-22','TRT 22'],nome: 'TRT 22ª Região (PI)', url: 'https://pje.trt22.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT23','TRT-23','TRT 23'],nome: 'TRT 23ª Região (MT)', url: 'https://pje.trt23.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TRT24','TRT-24','TRT 24'],nome: 'TRT 24ª Região (MS)', url: 'https://pje.trt24.jus.br/pjekz/ConsultaPublica/listView.seam' },
+      { siglas: ['TJAC','TJ DO ACRE','TRIBUNAL DE JUSTIÇA DO ACRE'],              nome: 'TJAC', url: 'https://pje.tjac.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJAL','TJ DE ALAGOAS','TRIBUNAL DE JUSTIÇA DE ALAGOAS'],       nome: 'TJAL', url: 'https://pje.tjal.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJAM','TJ DO AMAZONAS','TRIBUNAL DE JUSTIÇA DO AMAZONAS'],     nome: 'TJAM', url: 'https://pje.tjam.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJAP','TJ DO AMAPÁ','TRIBUNAL DE JUSTIÇA DO AMAPÁ'],           nome: 'TJAP', url: 'https://pje.tjap.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJBA','TJ DA BAHIA','TRIBUNAL DE JUSTIÇA DA BAHIA'],           nome: 'TJBA', url: 'https://pje.tjba.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJCE','TJ DO CEARÁ','TRIBUNAL DE JUSTIÇA DO CEARÁ'],           nome: 'TJCE', url: 'https://pje.tjce.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJDFT','TJ DO DISTRITO FEDERAL','TRIBUNAL DE JUSTIÇA DO DISTRITO FEDERAL'], nome: 'TJDFT', url: 'https://pje.tjdft.jus.br/consultaPublica/ConsultaPublica/listView.seam' },
+      { siglas: ['TJES','TJ DO ESPÍRITO SANTO','TRIBUNAL DE JUSTIÇA DO ESPÍRITO SANTO'],     nome: 'TJES', url: 'https://pje.tjes.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJGO','TJ DE GOIÁS','TRIBUNAL DE JUSTIÇA DE GOIÁS'],           nome: 'TJGO', url: 'https://pje.tjgo.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJMA','TJ DO MARANHÃO','TRIBUNAL DE JUSTIÇA DO MARANHÃO'],     nome: 'TJMA', url: 'https://pje.tjma.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJMG','TJ DE MINAS GERAIS','TRIBUNAL DE JUSTIÇA DE MINAS GERAIS'], nome: 'TJMG', url: 'https://pje.tjmg.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJMS','TJ DO MATO GROSSO DO SUL','TRIBUNAL DE JUSTIÇA DO MATO GROSSO DO SUL'], nome: 'TJMS', url: 'https://pje.tjms.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJMT','TJ DO MATO GROSSO','TRIBUNAL DE JUSTIÇA DO MATO GROSSO'],   nome: 'TJMT', url: 'https://pje.tjmt.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJPA','TJ DO PARÁ','TRIBUNAL DE JUSTIÇA DO PARÁ'],             nome: 'TJPA', url: 'https://pje.tjpa.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJPB','TJ DA PARAÍBA','TRIBUNAL DE JUSTIÇA DA PARAÍBA'],       nome: 'TJPB', url: 'https://pje.tjpb.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJPE','TJ DE PERNAMBUCO','TRIBUNAL DE JUSTIÇA DE PERNAMBUCO'], nome: 'TJPE', url: 'https://pje.tjpe.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJPI','TJ DO PIAUÍ','TRIBUNAL DE JUSTIÇA DO PIAUÍ'],           nome: 'TJPI', url: 'https://pje.tjpi.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJPR','TJ DO PARANÁ','TRIBUNAL DE JUSTIÇA DO PARANÁ'],         nome: 'TJPR', url: 'https://projudi.tjpr.jus.br/projudi/' },
+      { siglas: ['TJRJ','TJ DO RIO DE JANEIRO','TRIBUNAL DE JUSTIÇA DO RIO DE JANEIRO'], nome: 'TJRJ', url: 'https://tjrj.pje.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJRN','TJ DO RIO GRANDE DO NORTE','TRIBUNAL DE JUSTIÇA DO RIO GRANDE DO NORTE'], nome: 'TJRN', url: 'https://pje.tjrn.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJRO','TJ DE RONDÔNIA','TRIBUNAL DE JUSTIÇA DE RONDÔNIA'],     nome: 'TJRO', url: 'https://pje.tjro.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJRR','TJ DE RORAIMA','TRIBUNAL DE JUSTIÇA DE RORAIMA'],       nome: 'TJRR', url: 'https://pje.tjrr.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJRS','TJ DO RIO GRANDE DO SUL','TRIBUNAL DE JUSTIÇA DO RIO GRANDE DO SUL'], nome: 'TJRS', url: 'https://www.tjrs.jus.br/buscas/processo/BuscaProcesso.php' },
+      { siglas: ['TJSC','TJ DE SANTA CATARINA','TRIBUNAL DE JUSTIÇA DE SANTA CATARINA'], nome: 'TJSC', url: 'https://esaj.tjsc.jus.br/cpopg/open.do' },
+      { siglas: ['TJSE','TJ DE SERGIPE','TRIBUNAL DE JUSTIÇA DE SERGIPE'],       nome: 'TJSE', url: 'https://pje.tjse.jus.br/pje/ConsultaPublica/listView.seam' },
+      { siglas: ['TJSP','TJ DE SÃO PAULO','TRIBUNAL DE JUSTIÇA DE SÃO PAULO'],  nome: 'TJSP', url: 'https://esaj.tjsp.jus.br/cpopg/open.do' },
+      { siglas: ['TJTO','TJ DO TOCANTINS','TRIBUNAL DE JUSTIÇA DO TOCANTINS'],   nome: 'TJTO', url: 'https://pje.tjto.jus.br/pje/ConsultaPublica/listView.seam' },
+    ];
+
+    function detectarPJE(tribunalTexto) {
+      if (!tribunalTexto) return null;
+      const upper = tribunalTexto.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      for (const entry of PJE_MAP) {
+        for (const sigla of entry.siglas) {
+          const siglaUp = sigla.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (upper.includes(siglaUp)) return entry;
+        }
+      }
+      return null;
+    }
+
+    function renderPJE(tribunalTexto) {
+      const sec     = document.getElementById('pjeSection');
+      const content = document.getElementById('pjeContent');
+      const entry   = detectarPJE(tribunalTexto);
+      if (!tribunalTexto) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block';
+      if (entry) {
+        content.innerHTML = `
+          <div class="pje-card">
+            <div class="pje-card-left">
+              <span class="pje-tribunal-name">🏛️ ${entry.nome}</span>
+              <span class="pje-url-text">${entry.url}</span>
+              <span class="pje-instruction">ℹ️ Aperte no botão <strong>Abrir PJE</strong> e depois cole o número do processo na parte onde solicita o número do processo, logo após é só pesquisar.</span>
+            </div>
+            <a class="btn-pje" href="${entry.url}" target="_blank" rel="noopener">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Abrir PJE
+            </a>
+          </div>`;
+      } else {
+        content.innerHTML = `
+          <div class="pje-not-found">
+            ⚠️ Tribunal detectado: <strong>${escapeB(tribunalTexto)}</strong><br>
+            Não foi possível identificar o URL do PJE automaticamente. Verifique manualmente no site do tribunal.
+          </div>`;
+      }
+    }
+
+    function selecionarSaudacao(tipo) {
+      _saudacaoAtual = tipo;
+      document.querySelectorAll('#rf-tool .btn-greet').forEach(b => b.style.opacity = '0.55');
+      const mapa = { 'bom-dia': 0, 'boa-tarde': 1, 'boa-noite': 2 };
+      document.querySelectorAll('#rf-tool .btn-greet')[mapa[tipo]].style.opacity = '1';
+      const textos = {
+        'bom-dia':   { emoji: '', texto: 'Bom dia' },
+        'boa-tarde': { emoji: '', texto: 'Boa tarde' },
+        'boa-noite': { emoji: '', texto: 'Boa noite' },
+      };
+      const s = textos[tipo];
+      const nome = primeiroNome(_nomeCliente);
+      const msg = `*${s.texto}, ${nome}!*`;
+      document.getElementById('greetBadge').textContent = s.texto;
+      document.getElementById('msgPreview').textContent = msg;
+      document.getElementById('msgPreviewWrap').style.display = 'block';
+      renderContatos(msg);
+    }
+
+    function renderContatos(msgOverride) {
+      const grid = document.getElementById('contactsGrid');
+      grid.innerHTML = '';
+      const todos = [
+        ..._celulares.map(n => ({ num: n, tipo: '📱 Celular' })),
+        ..._fixos.map(n => ({ num: n, tipo: '☎️ Fixo' }))
+      ];
+      if (todos.length === 0) {
+        grid.innerHTML = '<span class="no-phones">Nenhum número encontrado no texto.</span>';
+        return;
+      }
+      todos.forEach(({ num, tipo }) => {
+        const waNum = toWaNumber(num);
+        const nome  = primeiroNome(_nomeCliente);
+        let msg = msgOverride;
+        if (!msg) msg = `Olá, ${nome}!`;
+        const url = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+        const card = document.createElement('div');
+        card.className = 'contact-card';
+        card.innerHTML = `
+          <span class="contact-type">${tipo}</span>
+          <span class="contact-number">${num}</span>
+          <a class="btn-zap" href="${url}" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#fff"/><path d="M23.5 8.5A10 10 0 0 0 6.3 20.6L5 27l6.6-1.7a10 10 0 0 0 4.8 1.2h.1A10 10 0 0 0 23.5 8.5zm-7 15.4a8.3 8.3 0 0 1-4.2-1.1l-.3-.2-3.1.8.8-3-.2-.3a8.3 8.3 0 1 1 7 3.8zm4.6-6.2c-.3-.1-1.6-.8-1.8-.9s-.4-.1-.6.1-.7.9-.8 1.1-.3.2-.6 0a7.2 7.2 0 0 1-2.1-1.3 7.8 7.8 0 0 1-1.5-1.8c-.1-.3 0-.5.1-.6l.4-.5.3-.4v-.4l-.9-2.1c-.2-.5-.4-.5-.6-.5h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.5 4 14 14 0 0 0 1.5.6 3.6 3.6 0 0 0 1.6.1 2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z" fill="#25d366"/></svg>
+            Abrir WhatsApp
+          </a>`;
+        grid.appendChild(card);
+      });
+    }
+
+    /* Expor no escopo global para os onclick="" do HTML */
+    window.reformular = function() {
+      const raw      = document.getElementById('rawText').value;
+      const cpf      = document.getElementById('cpf').value.trim();
+      const rawPhone = document.getElementById('rawPhone').value;
+      if (!raw.trim()) { alert('Cole o texto do processo primeiro!'); return; }
+      const d    = parse(raw);
+      const tels = extrairTelefones(rawPhone);
+      const texto = montarTexto(d, cpf, tels);
+      _nomeCliente  = d.autor || '';
+      _celulares    = tels.celulares;
+      _fixos        = tels.fixos;
+      _saudacaoAtual = '';
+      document.querySelectorAll('#rf-tool .btn-greet').forEach(b => b.style.opacity = '1');
+      document.getElementById('msgPreviewWrap').style.display = 'none';
+      document.getElementById('resultBox').textContent = texto;
+      document.getElementById('outputWrap').style.display = 'block';
+      renderContatos(null);
+      renderPJE(d.tribunal);
+      document.getElementById('outputWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.limpar = function() {
+      document.getElementById('rawText').value  = '';
+      document.getElementById('cpf').value      = '';
+      document.getElementById('rawPhone').value = '';
+      document.getElementById('resultBox').textContent = '';
+      document.getElementById('outputWrap').style.display = 'none';
+      _nomeCliente = ''; _celulares = []; _fixos = []; _saudacaoAtual = '';
+      document.querySelectorAll('#rf-tool .btn-greet').forEach(b => b.style.opacity = '1');
+      document.getElementById('msgPreviewWrap').style.display = 'none';
+      document.getElementById('contactsGrid').innerHTML = '';
+    };
+
+    window.copiar = function() {
+      const texto = document.getElementById('resultBox').textContent;
+      function mostrarOk() {
+        const ok  = document.getElementById('copyOk');
+        const btn = document.querySelector('#rf-tool .btn-copy');
+        ok.style.display = 'block';
+        if (btn) { btn.textContent = '✅ Copiado!'; btn.style.background = '#00b894'; }
+        setTimeout(() => {
+          ok.style.display = 'none';
+          if (btn) { btn.textContent = '📋 Copiar'; btn.style.background = ''; }
+        }, 2500);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(mostrarOk).catch(fallback);
+      } else { fallback(); }
+      function fallback() {
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); mostrarOk(); }
+        catch (e) { alert('Não foi possível copiar automaticamente.\nSelecione o texto manualmente e pressione Ctrl+C.'); }
+        document.body.removeChild(ta);
+      }
+    };
+
+    window.selecionarSaudacao = selecionarSaudacao;
+
+    /* CPF mask */
+    const cpfEl = document.getElementById('cpf');
+    if (cpfEl) cpfEl.addEventListener('input', function() {
+      let v = this.value.replace(/\D/g,'').slice(0,11);
+      if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');
+      else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');
+      else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/,'$1.$2');
+      this.value = v;
+    });
+  })();
 </script>
 </body>
 </html>
