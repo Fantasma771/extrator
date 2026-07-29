@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: jusbrasil-extractor
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    autoDeploy: true
