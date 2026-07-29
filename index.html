@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Buscador de Processos JusBrasil por Nome</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --primary: #5a2a82;
+    --primary-hover: #4a206f;
+    --bg: #f7f7fb;
+    --card: #ffffff;
+    --muted: #6b7280;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --err: #dc2626;
+    --border: #e5e7eb;
+    --text: #111827;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 720px; margin: 40px auto; padding: 0 20px; }
+  h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: -0.3px; }
+  .subtitle { margin: 0 0 32px; color: var(--muted); }
+  .card {
+    background: var(--card);
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    border: 1px solid var(--border);
+  }
+  form { display: flex; gap: 8px; margin-bottom: 16px; }
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    outline: none;
+  }
+  input[type="text"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(90, 42, 130, 0.15);
+  }
+  button.primary {
+    padding: 12px 18px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button.primary:hover:not(:disabled) { background: var(--primary-hover); }
+  button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .examples { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .examples button {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--muted);
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    border-radius: 999px;
+    cursor: pointer;
+    margin: 4px 4px 0 0;
+  }
+  .examples button:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* === REFORMULADOR === */
+  .reformulador {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border);
+  }
+  .reformulador-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .reformulador-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    font-weight: 700;
+  }
+  .reformulador-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    flex: 1;
+  }
+  .reformulador-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .reformulador-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .reformulador-actions button:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .reformulacoes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .reformulacao-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+  }
+  .reformulacao-btn:hover {
+    border-color: var(--primary);
+    background: rgba(90, 42, 130, 0.06);
+    transform: translateX(2px);
+  }
+  .rf-tag {
+    background: var(--primary);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 800;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    min-width: 110px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .rf-texto {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 13px;
+    word-break: break-word;
+    min-width: 0;
+  }
+  .rf-desc {
+    color: var(--muted);
+    font-size: 11px;
+    display: none;
+  }
+  .rf-arrow {
+    color: var(--muted);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* === RESULTADO === */
+  .resultado {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border-radius: 10px;
+    line-height: 1.5;
+  }
+  .resultado.ok { background: #ecfdf5; border: 1px solid #a7f3d0; }
+  .resultado.warn { background: #fffbeb; border: 1px solid #fde68a; }
+  .resultado.err { background: #fef2f2; border: 1px solid #fecaca; }
+  .url-display {
+    display: block;
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: #f3f4f6;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    word-break: break-all;
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .url-display:hover { background: #ebebf0; }
+  .details { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+  .details dt { display: inline-block; min-width: 130px; color: #374151; font-weight: 500; }
+  .details dd { display: inline; margin: 0; }
+  .details dt, .details dd { line-height: 1.9; }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .badge.ok { background: var(--ok); }
+  .badge.warn { background: var(--warn); }
+  .badge.err { background: var(--err); }
+  .hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  footer { margin-top: 32px; text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔎 Buscador de Processos JusBrasil</h1>
+  <p class="subtitle">Cole o nome completo e receba o link exato da página JusBrasil com todos os processos encontrados.</p>
+
+  <div class="card">
+    <form id="form" autocomplete="off">
+      <input id="nome" type="text" placeholder="Ex: JAMILA DRIELLY MOURA OLIVEIRA" required minlength="3">
+      <button id="btn" class="primary" type="submit">Buscar</button>
+    </form>
+    <div class="examples">
+      Exemplos:
+      <button type="button" data-nome="JAMILA DRIELLY MOURA OLIVEIRA">Jamila Drielly</button>
+      <button type="button" data-nome="João da Silva Santos">João da Silva</button>
+    </div>
+
+    <!-- ============================================== -->
+    <!-- REFORMULADOR — fica abaixo do buscador          -->
+    <!-- ============================================== -->
+    <div id="reformulador" class="reformulador" hidden>
+      <div class="reformulador-header">
+        <span class="reformulador-title">💡 Reformulador de nomes</span>
+        <span class="reformulador-subtitle">clique numa variação para buscá-la</span>
+        <div class="reformulador-actions">
+          <button type="button" id="rf-toggle" title="Mostrar/ocultar descrições">ℹ️ Detalhes</button>
+        </div>
+      </div>
+      <div id="reformulacoes" class="reformulacoes"></div>
+      <p class="hint">As variações cobrem erros comuns: capitalização, acentos, preposições, ordem dos nomes, sufixos (FILHO/JÚNIOR/NETO).</p>
+    </div>
+
+    <div id="resultado"></div>
+  </div>
+
+  <footer>
+    Resultados vêm do Google via filtro <code>site:jusbrasil.com.br</code>. Sem dados armazenados.
+  </footer>
+</div>
+
+<script>
+  const form  = document.getElementById('form');
+  const input = document.getElementById('nome');
+  const btn   = document.getElementById('btn');
+  const out   = document.getElementById('resultado');
+  const reformuladorEl = document.getElementById('reformulador');
+  const reformulacoesEl = document.getElementById('reformulacoes');
+
+  const LABELS = {
+    exact_slug_match:           ['Match exato',                    'ok'],
+    slug_strip_match:           ['Match parcial (verificar)',     'warn'],
+    first_jusbrasil_match:      ['Primeiro JusBrasil',            'warn'],
+    no_jusbrasil_url_in_results:['Sem página JusBrasil',          'err'],
+  };
+
+  let showDesc = false;
+
+  document.querySelectorAll('.examples button').forEach(b => {
+    b.addEventListener('click', () => {
+      input.value = b.dataset.nome;
+      input.focus();
+      renderReformulations();
+    });
+  });
+
+  document.getElementById('rf-toggle').addEventListener('click', () => {
+    showDesc = !showDesc;
+    document.querySelectorAll('.rf-desc').forEach(el => {
+      el.style.display = showDesc ? 'inline' : 'none';
+    });
+    const btn = document.getElementById('rf-toggle');
+    btn.textContent = showDesc ? '🙈 Ocultar' : 'ℹ️ Detalhes';
+  });
+
+  // =================================================
+  // REFORMULADOR — gera variações do nome digitado
+  // =================================================
+  function generateReformulations(nome) {
+    if (!nome || nome.trim().length < 3) return [];
+    const original = nome.trim();
+
+    const variants = [];
+    const seen = new Set([original.toLowerCase()]);
+
+    function add(label, query, description) {
+      const q = (query || '').trim();
+      if (q.length < 3) return;
+      const key = q.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      variants.push({ label, query: q, description });
+    }
+
+    const upper = original.toUpperCase();
+    add('MAIÚSCULAS', upper, 'Padroniza em MAIÚSCULAS (formato JusBrasil).');
+
+    const noAccent = original.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    if (noAccent !== upper) {
+      add('SEM ACENTO', noAccent, 'Remove acentos e cedilha (ç, á, ã, …).');
+    }
+
+    const noPreps = upper
+      .replace(/\b(D|DE|DA|DO|DAS|DOS)\b\s*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (noPreps !== upper) {
+      add('SEM PREPOSIÇÃO', noPreps, 'Remove de, da, do, das, dos.');
+    }
+
+    const parts = upper.split(/\s+/).filter(Boolean);
+
+    if (parts.length >= 3) {
+      const first_last = [parts[0], parts[parts.length - 1]].join(' ');
+      add('PRIM + ÚLT', first_last, 'Mantém só o primeiro e o último nome.');
+    }
+
+    if (parts.length >= 2) {
+      const reversed = parts.slice().reverse().join(' ');
+      add('INVERTIDO', reversed, 'Sobrenome vem primeiro (sem vírgula).');
+      add('INV. VÍRGULA', parts.slice().reverse().join(', '), 'Formato "Sobrenome, Nome".');
+    }
+
+    const titled = original
+      .toLowerCase()
+      .split(/\s+/)
+      .map(w => {
+        if (!w) return w;
+        // preposições ficam minúsculas em formato Título
+        const u = w.toUpperCase();
+        if (['DE', 'DA', 'DO', 'DAS', 'DOS', 'E'].includes(u)) return w.toLowerCase();
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      })
+      .join(' ');
+    if (titled !== original && titled.toUpperCase() !== upper) {
+      add('TÍTULO', titled, 'Cada nome com inicial maiúscula; preposições em minúscula.');
+    }
+
+    // Adiciona sufixos comuns usados em varas cíveis/trabalhistas
+    ['FILHO', 'JUNIOR', 'NETO'].forEach(suf => {
+      const upperSuf = suf.toUpperCase();
+      if (!upper.endsWith(' ' + upperSuf)) {
+        add('+ ' + upperSuf, upper + ' ' + upperSuf, 'Adiciona "' + suf + '" no final.');
+      }
+    });
+
+    // Remove sufixos terminais (se o usuário digitou "FILHO" sem precisar)
+    ['FILHO', 'JUNIOR', 'JÚNIOR', 'NETO', 'SOBRINHO'].forEach(suf => {
+      const upperSuf = suf.toUpperCase();
+      const stripped = upper.replace(new RegExp('\\s+' + upperSuf + '\\s*$'), '').trim();
+      if (stripped !== upper && stripped.length >= 3) {
+        add('SEM ' + upperSuf, stripped, 'Remove "' + suf + '" do final.');
+      }
+    });
+
+    return variants.slice(0, 10); // limite para não poluir
+  }
+
+  function renderReformulations() {
+    const variants = generateReformulations(input.value);
+    if (!variants.length) {
+      reformuladorEl.hidden = true;
+      reformulacoesEl.innerHTML = '';
+      return;
+    }
+    reformulacoesEl.innerHTML = variants.map(v => `
+      <button type="button" class="reformulacao-btn" data-query="${escape(v.query)}" title="${escape(v.description)}">
+        <span class="rf-tag">${escape(v.label)}</span>
+        <span class="rf-texto">${escape(v.query)}</span>
+        <span class="rf-desc">${escape(v.description)}</span>
+        <span class="rf-arrow">→</span>
+      </button>
+    `).join('');
+    reformuladorEl.hidden = false;
+
+    reformulacoesEl.querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        input.value = b.dataset.query;
+        renderReformulations();
+        form.dispatchEvent(new Event('submit'));
+      });
+    });
+  }
+
+  input.addEventListener('input', renderReformulations);
+
+  // =================================================
+  // BUSCA
+  // =================================================
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nome = input.value.trim();
+    if (nome.length < 3) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Buscando…';
+    out.innerHTML = '';
+
+    try {
+      const url = `/api/search?nome=${encodeURIComponent(nome)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      render(data);
+    } catch (err) {
+      out.innerHTML = `<div class="resultado err"><strong>Erro:</strong> ${escape(err.message)}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Buscar';
+    }
+  });
+
+  function render(data) {
+    const url = data.jusbrasil_url;
+    const cls = (url && data.match_quality === 'exact_slug_match') ? 'ok'
+              : (data.match_quality === 'no_jusbrasil_url_in_results') ? 'err'
+              : 'warn';
+    const [label, badgeCls] = LABELS[data.match_quality] || [data.match_quality, 'warn'];
+
+    let html = `<div class="resultado ${cls}">`;
+    if (url) {
+      const totalTxt = data.total_processos != null
+        ? `, com <strong>${data.total_processos.toLocaleString('pt-BR')}</strong> processos`
+        : '';
+      html += `
+        <strong>Página JusBrasil encontrada</strong>
+        <span class="badge ${badgeCls}">${escape(label)}</span>${totalTxt}
+        <a class="url-display" href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(url)}</a>
+        <dl class="details">
+          <dt>Nome buscado:</dt>     <dd>${escape(data.nome)}</dd>
+          <dt>Slug JusBrasil:</dt>   <dd><code>${escape(data.slug)}</code></dd>
+          <dt>Query Google:</dt>     <dd><code>${escape(data.google_query)}</code></dd>
+        </dl>`;
+      if (cls !== 'ok') {
+        html += `<p class="hint">⚠️ Match parcial — confirme o nome ou tente as variações do reformulador acima.</p>`;
+      }
+    } else {
+      html += `
+        <strong>O JusBrasil não parece ter página agregada para esse nome.</strong>
+        <span class="badge ${badgeCls}">${escape(label)}</span>
+        <p>Tente as variações do reformulador acima ☝️ ou reformule manualmente.</p>`;
+    }
+    html += '</div>';
+    out.innerHTML = html;
+  }
+
+  function escape(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    })[c]);
+  }
+
+  // render inicial (caso tenha cache/autofill)
+  renderReformulations();
+</script>
+</body>
+</html>
