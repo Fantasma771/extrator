@@ -1,0 +1,16 @@
+{
+  "name": "jusbrasil-extractor",
+  "version": "1.0.0",
+  "description": "Serviço HTTP que extrai informações estruturadas de processos do JusBrasil via Playwright",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "build": "npx playwright install --with-deps chromium"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright": "^1.45.0"
+  }
+}

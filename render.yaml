@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: jusbrasil-extractor
+    runtime: docker
+    plan: starter
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+    healthCheckPath: /
+    autoDeploy: true
