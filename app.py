@@ -2,10 +2,11 @@
 Extrator de Processos do JusBrasil — serviço HTTP em Python 3 (single-file).
 
 Rotas:
-  GET  /            healthcheck
-  GET  /docs        documentação em texto
-  POST /extract     body: { url, max_processes?, output_format? }
-                    output_format: "json" | "csv" | "markdown"
+  GET  /         página web (cola o link e extrai)
+  GET  /api      healthcheck JSON
+  GET  /docs     documentação em texto
+  POST /extract  body: { url, max_processes?, output_format? }
+                 output_format: "json" | "csv" | "markdown"
 """
 
 import os
@@ -18,7 +19,6 @@ from playwright.sync_api import sync_playwright
 
 PORT = int(os.environ.get("PORT", "10000"))
 
-# (rótulo na página, chave estruturada)
 FIELDS = [
     ("Processo n.",        "processo_numero"),
     ("Assunto",            "assunto"),
@@ -54,6 +54,266 @@ EXTRACT_JS = """
   for (const [label, key] of fields) out[key] = near(label);
   return out;
 }
+"""
+
+INDEX_HTML = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extrator de Processos do JusBrasil</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         max-width: 1280px; margin: 32px auto; padding: 0 20px; color: #1a1a1a; background: #f5f7fa; }
+  h1 { color: #1a4480; margin: 0 0 8px 0; }
+  .sub { color: #5a6470; margin-bottom: 24px; }
+  .card { background: white; border: 1px solid #d0d7de; border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+  label { display: block; font-weight: 600; margin-top: 14px; color: #1a4480; }
+  label:first-of-type { margin-top: 0; }
+  input, select { width: 100%; padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 14px; background: white; }
+  input:focus, select:focus { outline: 2px solid #1a4480; outline-offset: -1px; border-color: #1a4480; }
+  .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  button { background: #1a4480; color: white; border: 0; padding: 12px 24px; border-radius: 6px;
+           cursor: pointer; font-size: 15px; font-weight: 600; margin-top: 20px; }
+  button:hover:not(:disabled) { background: #2a5490; }
+  button:disabled { background: #8896a6; cursor: not-allowed; }
+  .status { padding: 12px 16px; margin: 16px 0; border-radius: 6px; font-size: 14px; display: none; }
+  .status.show { display: block; }
+  .status.info { background: #e6f0ff; color: #1a4480; border-left: 4px solid #1a4480; }
+  .status.error { background: #fde8e8; color: #b91c1c; border-left: 4px solid #b91c1c; }
+  .status.success { background: #e7f7ee; color: #156a3a; border-left: 4px solid #156a3a; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #1a4480;
+             border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;
+             vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .summary { display: none; gap: 12px; margin: 16px 0; }
+  .summary.show { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .stat { background: white; border: 1px solid #d0d7de; padding: 16px; border-radius: 6px; }
+  .stat strong { display: block; font-size: 28px; color: #1a4480; line-height: 1; }
+  .stat span { color: #5a6470; font-size: 13px; }
+  .actions { margin: 16px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions button { background: #5a6470; margin: 0; padding: 8px 16px; font-size: 13px; }
+  .table-wrap { max-height: 70vh; overflow: auto; background: white;
+                border: 1px solid #d0d7de; border-radius: 6px; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f2; vertical-align: top; }
+  th { background: #f5f7fa; font-weight: 600; position: sticky; top: 0; color: #1a4480; }
+  tbody tr:hover { background: #fafbfc; }
+  td.null { color: #b8c0c8; font-style: italic; }
+  .small { font-size: 12px; color: #5a6470; }
+</style>
+</head>
+<body>
+
+<h1>Extrator de Processos do JusBrasil</h1>
+<p class="sub">Cole o link da página de processos do advogado, escolha o limite e clique em <strong>Extrair</strong>.</p>
+
+<div class="card">
+  <label for="url">URL da página de processos do advogado</label>
+  <input id="url" type="url" placeholder="https://www.jusbrasil.com.br/processos/nome/..." required>
+
+  <div class="row">
+    <div>
+      <label for="max">Máximo de processos</label>
+      <input id="max" type="number" min="1" max="500" value="100">
+    </div>
+    <div>
+      <label for="format">Formato</label>
+      <select id="format">
+        <option value="json">Ver na tela (tabela)</option>
+        <option value="csv">Baixar CSV</option>
+        <option value="markdown">Baixar Markdown</option>
+      </select>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="btn">Extrair processos</button>
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+</div>
+
+<div id="summary" class="summary">
+  <div class="stat"><strong id="cnt">0</strong><span>Processos extraídos</span></div>
+  <div class="stat"><strong id="courts">0</strong><span>Tribunais distintos</span></div>
+  <div class="stat"><strong id="authors">0</strong><span>Polos ativos únicos</span></div>
+  <div class="stat"><strong id="avg">—</strong><span>Valor médio (R$)</span></div>
+</div>
+
+<div id="actions" class="actions" style="display:none">
+  <button onclick="downloadCsv()">Baixar CSV</button>
+  <button onclick="downloadMd()">Baixar Markdown</button>
+  <button onclick="copyJson()">Copiar JSON</button>
+</div>
+<div id="output"></div>
+
+<script>
+let lastData = null;
+
+const $ = (id) => document.getElementById(id);
+const btn = $('btn'), status = $('status'), output = $('output'), summary = $('summary'), actions = $('actions');
+
+function setStatus(kind, msg, spinner) {
+  status.className = 'status show ' + kind;
+  status.innerHTML = (spinner ? '<span class="spinner"></span>' : '') + msg;
+}
+
+function escapeHtml(s) {
+  if (s == null) return null;
+  return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+}
+
+function renderTable(data) {
+  const cols = [
+    ['processo_numero',     'Processo n.'],
+    ['assunto',             'Assunto'],
+    ['tribunal_origem',     'Tribunal'],
+    ['juiz',                'Juiz'],
+    ['inicio_processo',     'Início'],
+    ['valor_causa',         'Valor'],
+    ['polo_passivo_nome',   'Polo Passivo'],
+    ['polo_passivo_papel',  '(papel)'],
+    ['polo_ativo_nome',     'Polo Ativo'],
+    ['polo_ativo_papel',    '(papel)'],
+    ['_url',                'URL'],
+  ];
+  let html = '<div class="table-wrap"><table><thead><tr>';
+  cols.forEach(([_, title]) => { html += '<th>' + title + '</th>'; });
+  html += '</tr></thead><tbody>';
+  data.processes.forEach(p => {
+    html += '<tr>';
+    cols.forEach(([k, _]) => {
+      const v = p[k];
+      if (v == null || v === '') html += '<td class="null">—</td>';
+      else if (k === '_url') html += '<td><a href="' + escapeHtml(v) + '" target="_blank" rel="noopener">abrir</a></td>';
+      else html += '<td>' + escapeHtml(v) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  output.innerHTML = html;
+}
+
+function computeSummary(data) {
+  const courts = new Set(), authors = new Set();
+  const values = [];
+  data.processes.forEach(p => {
+    if (p.tribunal_origem) courts.add(p.tribunal_origem);
+    if (p.polo_ativo_nome) authors.add(p.polo_ativo_nome);
+    if (p.valor_causa) {
+      const n = parseFloat(String(p.valor_causa).replace(/[^0-9,]/g, '').replace(',', '.'));
+      if (!isNaN(n) && n > 0) values.push(n);
+    }
+  });
+  $('cnt').textContent = data.count;
+  $('courts').textContent = courts.size;
+  $('authors').textContent = authors.size;
+  if (values.length) {
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    $('avg').textContent = avg.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else {
+    $('avg').textContent = '—';
+  }
+  summary.classList.add('show');
+}
+
+async function callExtract(fmt) {
+  const url = $('url').value.trim();
+  const max = parseInt($('max').value || '100', 10);
+  if (!url || !url.startsWith('http')) {
+    setStatus('error', 'Cole uma URL válida começando com http:// ou https://.');
+    return;
+  }
+  btn.disabled = true;
+  output.innerHTML = '';
+  actions.style.display = 'none';
+  summary.classList.remove('show');
+  setStatus('info', 'Abrindo navegador headless, listando processos e clicando em cada um. Aguarde...', true);
+
+  try {
+    const res = await fetch('/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, max_processes: max, output_format: fmt })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error('HTTP ' + res.status + ' — ' + errText);
+    }
+
+    if (fmt === 'csv' || fmt === 'markdown') {
+      const blob = await res.blob();
+      const ext = fmt === 'csv' ? 'csv' : 'md';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'jusbrasil_processos.' + ext;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setStatus('success', 'Download iniciado: jusbrasil_processos.' + ext);
+      return;
+    }
+
+    const data = await res.json();
+    lastData = data;
+    computeSummary(data);
+    renderTable(data);
+    actions.style.display = 'flex';
+    setStatus('success', 'Extração concluída: ' + data.count + ' processo(s).');
+  } catch (e) {
+    setStatus('error', 'Erro: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+btn.addEventListener('click', () => callExtract($('format').value));
+
+async function downloadCsv() {
+  if (!lastData) return;
+  const res = await fetch('/extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: $('url').value.trim(), max_processes: parseInt($('max').value, 10), output_format: 'csv' })
+  });
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jusbrasil_processos.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function downloadMd() {
+  if (!lastData) return;
+  const res = await fetch('/extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: $('url').value.trim(), max_processes: parseInt($('max').value, 10), output_format: 'markdown' })
+  });
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jusbrasil_processos.md';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function copyJson() {
+  if (!lastData) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(lastData, null, 2));
+    setStatus('success', 'JSON copiado para a área de transferência.');
+  } catch (e) {
+    setStatus('error', 'Não foi possível copiar: ' + e.message);
+  }
+}
+</script>
+
+</body>
+</html>
 """
 
 
@@ -155,12 +415,12 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print(fmt % args, flush=True)
 
-    def _send(self, status, ctype, body):
+    def _send(self, status_code, ctype, body):
         if isinstance(body, str):
             body_bytes = body.encode("utf-8")
         else:
             body_bytes = body
-        self.send_response(status)
+        self.send_response(status_code)
         if ctype:
             suffix = "; charset=utf-8" if ctype.startswith("text") else ""
             self.send_header("Content-Type", ctype + suffix)
@@ -173,11 +433,13 @@ class Handler(BaseHTTPRequestHandler):
         self._send(204, "", b"")
 
     def do_GET(self):
-        if self.path == "/":
+        if self.path == "/" or self.path == "/index.html":
+            return self._send(200, "text/html", INDEX_HTML)
+        if self.path == "/api":
             return self._send(200, "application/json", json.dumps({
                 "status": "ok",
                 "servico": "Extrator de Processos do JusBrasil",
-                "endpoints": ["GET /", "POST /extract", "GET /docs"],
+                "endpoints": ["GET /", "GET /api", "GET /docs", "POST /extract"],
             }))
         if self.path == "/docs":
             return self._send(200, "text/plain", (
