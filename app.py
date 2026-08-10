@@ -7,15 +7,19 @@ Endpoints:
     GET /healthz           -> healthcheck
 
 Variáveis de ambiente:
-    SERPAPI_KEY            -> obrigatória (cadastro grátis em serpapi.com)
+    SERPAPI_KEY            -> chave nova da SerpAPI (lida do .env ou do ambiente)
 
 Execução local:
     pip install -r requirements.txt
-    export SERPAPI_KEY=sua_chave
+    # opcional: copie .env.example para .env e preencha a chave
     uvicorn app:app --reload --port 8000
 """
 import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()  # carrega SERPAPI_KEY do arquivo .env (se existir)
 
 import httpx
 from fastapi import FastAPI, HTTPException
