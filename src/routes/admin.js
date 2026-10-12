@@ -13,7 +13,7 @@ const Municipio = require('../models/Municipio');
 const ImportJob = require('../models/ImportJob');
 const importador = require('../services/importador');
 const { isConnected } = require('../db');
-const { baseUrl } = require('../lib/fontes');
+const { resolverBase, BASE_MIRROR } = require('../lib/fontes');
 const { UFS } = require('../lib/tables');
 
 const router = express.Router();
@@ -59,11 +59,12 @@ router.use((req, res, next) => {
 /* ------------------------------------------------------------------ */
 router.get('/diagnostico', adminAuth, async (req, res, next) => {
   try {
-    const [total, municipios, porUf, jobs] = await Promise.all([
+    const [total, municipios, porUf, jobs, fonteDados] = await Promise.all([
       Company.estimatedDocumentCount(),
       Municipio.estimatedDocumentCount(),
       Company.aggregate([{ $group: { _id: '$endereco.uf', total: { $sum: 1 } } }, { $sort: { total: -1 } }]),
       ImportJob.find({}, { log: 0 }).sort({ iniciadoEm: -1 }).limit(5).lean(),
+      resolverBase({ forcar: true }).catch(() => BASE_MIRROR),
     ]);
 
     res.json({
@@ -74,7 +75,7 @@ router.get('/diagnostico', adminAuth, async (req, res, next) => {
           uptime: Math.round(process.uptime()),
           node: process.version,
           memoriaMB: Math.round(process.memoryUsage().rss / 1048576),
-          fonteDados: baseUrl(),
+          fonteDados,
           adminProtegido: !!tokenAdmin(),
           ufs: UFS,
         },

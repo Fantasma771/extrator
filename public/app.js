@@ -202,17 +202,35 @@ function descreverAlvo(f) {
 /* ---------------------- PREPARACAO AUTOMATICA DA BASE ---------------------- */
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function abrirPrep(titulo, sub) {
+const prep = { resolver: null, rejeitar: null, rodando: false };
+
+function abrirPrep(titulo, sub, qtd) {
   $('#prepTitulo').textContent = titulo;
   $('#prepSub').textContent = sub;
   $('#prepLog').textContent = '';
   $('#prepStats').innerHTML = '';
   $('#prepFill').style.width = '0%';
-  $('#prepFase').textContent = 'iniciando...';
+  $('#prepFase').textContent = 'aguardando voce iniciar...';
   $('#prepTempo').textContent = '';
+  const input = $('#prepQtd');
+  if (input) input.value = qtd ? String(qtd) : '';
+  $('#prepQtdBox').hidden = false;
+  $('#btnPrepIniciar').hidden = false;
+  $('#btnPrepIniciar').disabled = false;
+  $('#btnPararPrep').hidden = true;
+  $('#btnPararPrep').disabled = false;
+  $('#btnFecharPrep').textContent = 'Fechar';
   const el = $('#prepOverlay');
   el.hidden = false;
   el.style.display = 'flex';
+}
+
+function modoPrepRodando() {
+  $('#prepQtdBox').hidden = true;
+  $('#btnPrepIniciar').hidden = true;
+  $('#btnPararPrep').hidden = false;
+  $('#btnPararPrep').disabled = false;
+  $('#btnFecharPrep').textContent = 'Fechar (continua)';   
 }
 
 function fecharPrep() {
@@ -220,12 +238,15 @@ function fecharPrep() {
   if (!el) return;
   el.hidden = true;
   el.style.display = 'none';
+  prep.resolver = null;
+  prep.rejeitar = null;
+  prep.rodando = false;
 }
 
 function renderPrep(job, inicio) {
   if (!job) return;
   const p = job.progresso || {};
-  const fracao = (job.faseNumero || 0) / (job.totalFases || 5);
+  const fracao = (job.faseNumero || 0) / (job.totalFases || 6);
   const dentro = p.totalArquivos ? (p.arquivoNumero || 0) / p.totalArquivos : 0;
   const pct = Math.min(fracao * 80 + dentro * 20, 99);
   $('#prepFill').style.width = `${pct.toFixed(0)}%`;
@@ -235,50 +256,37 @@ function renderPrep(job, inicio) {
   const seg = Math.max(Math.round((Date.now() - desde) / 1000), 0);
   $('#prepTempo').textContent = seg < 60 ? `${seg}s` : `${Math.floor(seg / 60)}min ${seg % 60}s`;
 
+  const limite = job.limite ? ` · Limite: <b>${fmtNum(job.limite)}</b>` : ' · Limite: <b>todas</b>';
   $('#prepStats').innerHTML =
-    `Linhas lidas: <b>${fmtNum(p.linhasLidas || 0)}</b> · Empresas gravadas: <b>${fmtNum(p.gravados || 0)}</b>`;
+    `Linhas lidas: <b>${fmtNum(p.linhasLidas || 0)}</b> · Empresas gravadas: <b>${fmtNum(p.gravados || 0)}</b>${limite}`;
   $('#prepLog').textContent = (job.log || []).join('\n');
   $('#prepLog').scrollTop = $('#prepLog').scrollHeight;
 }
 
-/**
- * Garante que a base tem os dados do estado/cidade escolhidos.
- * Se nao tiver, dispara a importacao no servidor e acompanha ate terminar.
- */
-async function garantirBase(filtros) {
-  if (!filtros.uf && !filtros.municipio) return true;
+/** Espera o usuario clicar em IMPORTAR AGORA e devolve a quantidade escolhida */
+function esperarInicioPrep() {
+  return new Promise((resolve, reject) => {
+    prep.resolver = (valor) => resolve(valor);
+    prep.rejeitar = () => reject(new Error('IMPORTACAO_CANCELADA'));
+  });
+}
 
-  let st;
+async function pararImportacaoPrep() {
   try {
-    st = await api('/api/status', { uf: filtros.uf, municipio: filtros.municipio });
+    $('#btnPararPrep').disabled = true;
+    await api('/api/parar', null, null, { method: 'POST', timeout: 20000 });
+    toast('Cancelamento solicitado — parando agora.', '', 5000);
+    $('#prepFase').textContent = 'cancelando...';
   } catch (e) {
-    console.warn('[status]', e.message);
-    return true; // se o status falhar, segue com a busca normal
+    $('#btnPararPrep').disabled = false;
+    toast(`Falha ao parar: ${e.message}`, 'err');
   }
-  if (!st.data.precisaImportar) return true;
+}
 
-  const alvo = filtros.municipio ? `${filtros.municipio}/${filtros.uf}` : filtros.uf;
-  abrirPrep(
-    `Preparando ${alvo}...`,
-    `Primeira busca em ${alvo}: o sistema vai baixar os dados oficiais da Receita Federal e gravar no banco. ` +
-    'Isso roda no servidor — voce nao precisa fazer nada. Pode levar de 40 min a 3 h.'
-  );
-  loader(false);
-
-  const inicio = Date.now();
-
-  // Se ja existe uma importacao rodando, aproveita ela
-  if (!(st.data.job && st.data.job.status === 'executando')) {
-    const r = await api('/api/preparar', null, null, {
-      method: 'POST',
-      body: { uf: filtros.uf, municipio: filtros.municipio },
-      timeout: 30000,
-    });
-    if (r.data && r.data.jobId) st.data.job = { id: r.data.jobId, status: 'executando' };
-  }
-
-  // Acompanha por polling (simples e imune a proxy)
-  for (let i = 0; i < 3600; i += 1) {
+/** Acompanha a importacao por polling ate terminar, cancelar ou dar erro */
+async function acompanharImportacao(filtros, alvo, inicio) {
+  prep.rodando = true;
+  for (let i = 0; i < 7200; i += 1) {
     await dormir(3000);
     let s;
     try {
@@ -294,13 +302,83 @@ async function garantirBase(filtros) {
       return true;
     }
     if (s.data.job && s.data.job.status !== 'executando') {
+      const j = s.data.job;
       fecharPrep();
-      throw new Error(s.data.job.erro || `A importacao de ${alvo} terminou sem gravar dados.`);
+      if (j.status === 'cancelado') throw new Error('IMPORTACAO_CANCELADA');
+      throw new Error(j.erro || `A importacao de ${alvo} terminou sem gravar dados.`);
     }
   }
 
   fecharPrep();
   throw new Error('A importacao esta demorando mais que o esperado. Acompanhe pelo painel ADMIN.');
+}
+
+/**
+ * Garante que a base tem os dados do estado/cidade escolhidos.
+ * Se nao tiver, abre o painel de importacao: o usuario escolhe a QUANTIDADE,
+ * clica em IMPORTAR AGORA e pode clicar em PARAR a qualquer momento.
+ */
+async function garantirBase(filtros) {
+  if (!filtros.uf && !filtros.municipio) return true;
+
+  let st;
+  try {
+    st = await api('/api/status', { uf: filtros.uf, municipio: filtros.municipio });
+  } catch (e) {
+    console.warn('[status]', e.message);
+    return true; // se o status falhar, segue com a busca normal
+  }
+  if (!st.data.precisaImportar) return true;
+
+  const alvo = filtros.municipio ? `${filtros.municipio}/${filtros.uf}` : filtros.uf;
+  const qtdSugerida = Number(($('#fQtd') && $('#fQtd').value) || 0) || 0;
+
+  // Se ja existe uma importacao rodando, apenas acompanha (com botao PARAR)
+  if (st.data.job && st.data.job.status === 'executando') {
+    abrirPrep(
+      `Preparando ${alvo}...`,
+      'Ja existe uma importacao em andamento para a base. Acompanhe abaixo ou clique em PARAR para cancelar.',
+      ''
+    );
+    modoPrepRodando();
+    loader(false);
+    return acompanharImportacao(filtros, alvo, Date.now());
+  }
+
+  // Mostra o painel pedindo a quantidade e esperando o usuario iniciar
+  abrirPrep(
+    `Preparando ${alvo}...`,
+    `Primeira busca em ${alvo}: o sistema baixa os dados oficiais (espelho CDN, muito mais rapido) e grava no banco. ` +
+    'Isso roda no servidor. Escolha a quantidade de empresas e clique em IMPORTAR AGORA.',
+    qtdSugerida
+  );
+  loader(false);
+
+  let qtd;
+  try {
+    qtd = await esperarInicioPrep();
+  } catch (_) {
+    fecharPrep();
+    throw new Error('IMPORTACAO_CANCELADA');
+  }
+
+  modoPrepRodando();
+  $('#prepFase').textContent = 'iniciando...';
+  $('#prepFill').style.width = '2%';
+
+  try {
+    const r = await api('/api/preparar', null, null, {
+      method: 'POST',
+      body: { uf: filtros.uf, municipio: filtros.municipio, limit: qtd },
+      timeout: 30000,
+    });
+    if (!(r.data && r.data.jobId)) throw new Error('Nao foi possivel iniciar a importacao.');
+  } catch (e) {
+    fecharPrep();
+    throw e;
+  }
+
+  return acompanharImportacao(filtros, alvo, Date.now());
 }
 
 /* ----------------------------- BUSCA ----------------------------- */
@@ -338,7 +416,8 @@ async function buscar(resetPagina = true, permitirImportar = false) {
     renderContagem(contagem.data, filtros);
     setStatus('ok', 'Base conectada');
   } catch (e) {
-    if (e.message === 'NAO_AUTORIZADO') { setStatus('err', 'Chave invalida'); toast('Chave de API invalida. Abra as Configuracoes.', 'err'); }
+    if (e.message === 'IMPORTACAO_CANCELADA') { setStatus('', 'Importacao cancelada'); toast('Importacao cancelada. Ajuste os filtros ou tente novamente.', '', 6000); }
+    else if (e.message === 'NAO_AUTORIZADO') { setStatus('err', 'Chave invalida'); toast('Chave de API invalida. Abra as Configuracoes.', 'err'); }
     else if (String(e.message).includes('BANCO_DESCONECTADO')) { setStatus('err', 'Banco offline'); toast('MongoDB desconectado. Verifique MONGODB_URI.', 'err'); }
     else { setStatus('err', 'Erro na busca'); toast(`Erro: ${e.message}`, 'err', 9000); }
     renderTabela([]);
@@ -972,13 +1051,14 @@ function renderJob(job, ativo) {
     <div>Fase: <b>${esc(job.fase || '—')}</b> ${p.totalArquivos ? `(${p.arquivoNumero || 0}/${p.totalArquivos})` : ''}</div>
     ${p.arquivo ? `<div>Arquivo: <b>${esc(p.arquivo)}</b></div>` : ''}
     <div>Linhas lidas: <b>${fmtNum(p.linhasLidas || 0)}</b> · Registros gravados: <b>${fmtNum(p.gravados || 0)}</b></div>
+    <div>Quantidade pedida: <b>${(job.opcoes && job.opcoes.limit) ? fmtNum(job.opcoes.limit) : 'todas'}</b></div>
     <div>Tempo: <b>${fmtDuracao(duracao)}</b>${job.resultado ? ` · ${fmtNum(job.resultado.empresas)} empresas na base` : ''}</div>
     ${job.erro ? `<div style="color:var(--red)">${esc(job.erro)}</div>` : ''}
   `;
 
   if (job.status === 'executando') {
     $('#impProgressWrap').hidden = false;
-    const pct = Math.min(((job.faseNumero || 0) / (job.totalFases || 5)) * 100 + (p.totalArquivos ? (p.arquivoNumero / p.totalArquivos) * 20 : 0), 99);
+    const pct = Math.min(((job.faseNumero || 0) / (job.totalFases || 6)) * 100 + (p.totalArquivos ? (p.arquivoNumero / p.totalArquivos) * 20 : 0), 99);
     $('#impFill').style.width = `${pct}%`;
     $('#impFase').textContent = `${job.fase || 'iniciando'} — ${pct.toFixed(0)}%`;
     $('#impTempo').textContent = fmtDuracao(duracao);
@@ -1204,6 +1284,28 @@ function bindEventos() {
   $$('[data-close]').forEach((b) => b.addEventListener('click', () => $(`#${b.dataset.close}`).classList.remove('open')));
   $$('.modal-overlay').forEach((ov) => ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); }));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-overlay').forEach((m) => m.classList.remove('open')); });
+
+  // Painel de preparacao automatica (quantidade + parar)
+  $('#btnPrepIniciar').addEventListener('click', () => {
+    const v = Math.max(Number($('#prepQtd').value) || 0, 0);
+    if (prep.resolver) {
+      const resolver = prep.resolver;
+      prep.resolver = null;
+      prep.rejeitar = null;
+      resolver(v);
+    }
+  });
+  $('#btnFecharPrep').addEventListener('click', () => {
+    if (prep.resolver) {
+      const rejeitar = prep.rejeitar;
+      prep.resolver = null;
+      prep.rejeitar = null;
+      if (rejeitar) rejeitar();
+    } else {
+      fecharPrep();
+    }
+  });
+  $('#btnPararPrep').addEventListener('click', pararImportacaoPrep);
 
   // Administracao / importacao
   $('#btnAdmin').addEventListener('click', abrirAdmin);

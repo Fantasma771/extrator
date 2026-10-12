@@ -34,7 +34,7 @@ const { pipeline } = require('stream/promises');
 
 const { connect, mongoose } = require('../src/db');
 const importador = require('../src/services/importador');
-const { baseUrl } = require('../src/lib/fontes');
+const { baseUrl, resolverBase } = require('../src/lib/fontes');
 
 /* ------------------------------------------------------------------ */
 /* Argumentos                                                          */
@@ -108,7 +108,8 @@ function baixar(url, destino) {
   });
 }
 
-async function baixarTudo(dataDir) {
+async function baixarTudo(dataDir, base) {
+  const raiz = base || (await resolverBase({ log: (m) => console.log(`[fonte] ${m}`) }));
   fs.mkdirSync(dataDir, { recursive: true });
   const alvos = ['Municipios.zip', 'Naturezas.zip', 'Qualificacoes.zip', 'Motivos.zip', 'Cnaes.zip', 'Simples.zip'];
   for (let i = 0; i <= 9; i += 1) {
@@ -120,7 +121,7 @@ async function baixarTudo(dataDir) {
     if (fs.existsSync(destino)) { console.log(`[download] ja existe: ${nome}`); continue; }
     try {
       console.log(`[download] ${nome}`);
-      await baixar(baseUrl() + nome, destino);
+      await baixar(raiz + nome, destino);
       console.log(`[download] ok: ${nome}`);
     } catch (e) {
       console.warn(`[download] falhou ${nome}: ${e.message}`);
@@ -137,16 +138,18 @@ async function main() {
 
   if (args.dataDir && !fs.existsSync(args.dataDir)) args.dataDir = null;
 
+  const base = args.dataDir ? null : await resolverBase({ log: (m) => console.log(`[fonte] ${m}`) });
+
   console.log('============================================================');
   console.log(' IMPORTADOR - Dados Abertos do CNPJ (Receita Federal)');
   console.log('============================================================');
-  console.log(` Fonte  : ${args.dataDir ? `pasta local ${path.resolve(args.dataDir)}` : baseUrl() + ' (streaming)'}`);
+  console.log(` Fonte  : ${args.dataDir ? `pasta local ${path.resolve(args.dataDir)}` : (base || baseUrl()) + ' (streaming)'}`);
   console.log(` UF     : ${args.uf || 'TODAS (pode ser muito pesado!)'}`);
   console.log(` Lote   : ${args.batch}`);
   console.log(` Limite : ${args.limit || 'sem limite'}`);
   console.log('============================================================\n');
 
-  if (args.download) await baixarTudo(args.dataDir || './data');
+  if (args.download) await baixarTudo(args.dataDir || './data', base);
 
   await connect();
 

@@ -474,6 +474,7 @@ function resumoJob(job) {
     faseNumero: j.faseNumero,
     totalFases: j.totalFases,
     progresso: j.progresso || {},
+    limite: (j.opcoes && j.opcoes.limit) || 0,
     log: (j.log || []).slice(-40),
     erro: j.erro,
     iniciadoEm: j.iniciadoEm,
@@ -554,7 +555,7 @@ router.get('/status', async (req, res, next) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* POST /api/preparar  { uf, municipio }                               */
+/* POST /api/preparar  { uf, municipio, limit }                        */
 /* Dispara a importacao do que falta, sem o usuario precisar fazer nada */
 /* ------------------------------------------------------------------ */
 router.post('/preparar', async (req, res, next) => {
@@ -567,8 +568,10 @@ router.post('/preparar', async (req, res, next) => {
       });
     }
 
-    const uf = String((req.body && req.body.uf) || req.query.uf || '').toUpperCase().trim();
-    const municipio = String((req.body && req.body.municipio) || req.query.municipio || '').trim();
+    const corpo = req.body || {};
+    const uf = String(corpo.uf || req.query.uf || '').toUpperCase().trim();
+    const municipio = String(corpo.municipio || req.query.municipio || '').trim();
+    const limit = Math.max(Number(corpo.limit || req.query.limit) || 0, 0);
 
     if (!uf) {
       return res.status(400).json({
@@ -584,13 +587,30 @@ router.post('/preparar', async (req, res, next) => {
       return res.json({ ok: true, data: { jobId: jaRodando, jaRodando: true } });
     }
 
-    const job = await importador.iniciarJob({ uf, municipio, origem: 'automatico', remoto: true });
+    const job = await importador.iniciarJob({ uf, municipio, limit, origem: 'automatico', remoto: true });
     return res.json({ ok: true, data: { jobId: String(job._id), jaRodando: false } });
   } catch (erro) {
     if (erro.message === 'JA_EXISTE_IMPORTACAO_EM_ANDAMENTO') {
       const id = importador.jobAtivo();
       return res.json({ ok: true, data: { jobId: id, jaRodando: true } });
     }
+    return next(erro);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/parar                                                     */
+/* Cancela a importacao em andamento (botao PARAR do dashboard).       */
+/* ------------------------------------------------------------------ */
+router.post('/parar', async (req, res, next) => {
+  try {
+    const id = importador.jobAtivo();
+    if (!id) {
+      return res.json({ ok: true, data: { jobId: null }, message: 'Nenhuma importacao em andamento.' });
+    }
+    await importador.cancelarJob(id);
+    return res.json({ ok: true, data: { jobId: id }, message: 'Cancelamento solicitado — parando agora.' });
+  } catch (erro) {
     return next(erro);
   }
 });

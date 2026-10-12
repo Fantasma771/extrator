@@ -13,6 +13,29 @@ Stack: **Node.js + Express + MongoDB (Mongoose) + dashboard HTML/CSS/JS puro + C
 
 ---
 
+## 🆕 Novidades desta versão (v7)
+
+- **Fonte de dados trocada para o espelho com CDN Cloudflare** —
+  `https://dados-abertos-rf-cnpj.casadosdados.com.br/arquivos/`. O `Municipios.zip`
+  baixa em menos de 1 s (contra minutos/horas do servidor oficial).
+- **Descoberta automática da pasta do mês mais recente** — o sistema lê o índice do
+  espelho e escolhe a pasta `AAAA-MM-DD` mais nova sozinho (com fallback para o
+  servidor oficial caso o espelho fique fora do ar).
+- **Corrigido o travamento da importação** — a causa era o `unzipper` em modo
+  `forceStream`, que não emitia nenhuma entrada e deixava o download pendurado
+  para sempre ("Linhas lidas: 0" por horas). Agora o ZIP é lido em streaming de
+  verdade, com timeout de inatividade e retentativas.
+- **Campo de QUANTIDADE** — no painel de preparação da base e no painel ADMIN você
+  escolhe quantas empresas importar (ex.: 1.000). O sistema **para sozinho** quando
+  atinge a quantidade — ideal para testes rápidos.
+- **Botão PARAR** — cancela a importação na hora (derruba a conexão HTTP), tanto no
+  painel de preparação quanto no painel ADMIN.
+- **Corrigida a resolução do município** — os códigos de município da Receita têm
+  4 dígitos (ex.: `1559` = Sobral), não são códigos IBGE. A UF agora é descoberta a
+  partir dos Estabelecimentos.
+
+---
+
 ## 📁 Estrutura
 
 ```

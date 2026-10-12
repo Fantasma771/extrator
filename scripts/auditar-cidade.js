@@ -95,7 +95,7 @@ Uso: node scripts/auditar-cidade.js --uf UF (--municipio NOME | --codigo CODIGO)
   }
 
   const dataDir = args.dataDir && fs.existsSync(args.dataDir) ? path.resolve(args.dataDir) : null;
-  const fontes = resolverFontes('estabelecimentos', { dataDir, remoto: true });
+  const fontes = await resolverFontes('estabelecimentos', { dataDir, remoto: true });
   if (!fontes.length) {
     console.error(`Nenhum arquivo de Estabelecimentos encontrado em ${dataDir || args.dataDir}`);
     process.exit(1);

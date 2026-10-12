@@ -391,6 +391,14 @@ a { color: var(--gold); text-decoration: none; }
 .prep-hint { margin-top: 16px; font-size: 0.74rem; color: #6b6659; line-height: 1.6; }
 .prep-hint b { color: var(--gold); }
 .prep-box .imp-log { text-align: left; max-height: 170px; }
+.prep-qtd { text-align: left; margin-bottom: 20px; }
+.prep-qtd label { display: block; font-size: 0.76rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.prep-qtd input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(0,0,0,0.45); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+.prep-qtd input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.18); }
+.prep-qtd small { display: block; margin-top: 8px; font-size: 0.72rem; color: #6b6659; line-height: 1.5; }
+.prep-qtd small b { color: var(--gold); }
+.prep-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.field small { display: block; margin-top: 6px; font-size: 0.7rem; color: #6b6659; line-height: 1.4; }
 
 /* ------------------------------ FOOTER ------------------------------ */
 .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 24px 4px 0; font-size: 0.76rem; color: #5f5a4e; letter-spacing: 0.06em; border-top: 1px solid rgba(212,175,55,0.1); }

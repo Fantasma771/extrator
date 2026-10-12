@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css?v=5" />
+<link rel="stylesheet" href="styles.css?v=7" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -193,6 +193,12 @@
         <label>Busca livre</label>
         <input id="fQ" type="text" placeholder="nome, fantasia, CNPJ ou socio" />
       </div>
+
+      <div class="field field-qtd">
+        <label>Qtd. de empresas a importar</label>
+        <input id="fQtd" type="number" min="0" step="100" placeholder="0 = todas" title="Limite a importacao automatica da base. 0 importa todas as empresas do estado/cidade." />
+        <small>Limita a importacao (util para um teste rapido). 0 = todas.</small>
+      </div>
     </div>
 
     <div class="tipo-block">
@@ -351,8 +357,9 @@
             <select id="impUf"><option value="">— TODO O BRASIL (muito pesado) —</option></select>
           </div>
           <div class="field" style="margin-top:12px">
-            <label>Limitar registros (só para teste)</label>
-            <input id="impLimit" type="number" min="0" placeholder="0 = sem limite (recomendado)" />
+            <label>Quantidade de empresas a buscar</label>
+            <input id="impLimit" type="number" min="0" placeholder="0 = todas (recomendado)" />
+            <small>Ex.: 500 importa as primeiras 500 empresas do estado/cidade e para sozinho.</small>
           </div>
           <div class="switches switches-col">
             <label class="switch"><input type="checkbox" id="impDrop" /><span></span> Apagar a base antes de importar</label>
@@ -429,15 +436,28 @@
     <div class="prep-ring"></div>
     <h3 id="prepTitulo">Preparando a base...</h3>
     <p class="prep-sub" id="prepSub"></p>
+
+    <div class="prep-qtd" id="prepQtdBox">
+      <label for="prepQtd">Quantidade de empresas a buscar</label>
+      <input id="prepQtd" type="number" min="0" step="100" placeholder="0 = todas" />
+      <small>Ex.: 1000 baixa e grava 1000 empresas e para. Use <b>0</b> para importar tudo do estado/cidade.</small>
+    </div>
+
     <div class="progress-bar"><div class="progress-fill" id="prepFill"></div></div>
     <div class="progress-text"><span id="prepFase">iniciando...</span><span id="prepTempo"></span></div>
     <div class="prep-stats" id="prepStats"></div>
     <pre class="imp-log" id="prepLog"></pre>
-    <p class="prep-hint">A importacao roda <b>no servidor</b>. Voce pode fechar esta janela — ela continua.</p>
+
+    <div class="prep-actions">
+      <button class="btn btn-gold" id="btnPrepIniciar">▶ IMPORTAR AGORA</button>
+      <button class="btn btn-danger" id="btnPararPrep" hidden>■ PARAR</button>
+      <button class="btn btn-ghost" id="btnFecharPrep">Fechar</button>
+    </div>
+    <p class="prep-hint">A importacao roda <b>no servidor</b>. Voce pode fechar esta janela — ela continua. Clique em <b>PARAR</b> a qualquer momento para cancelar.</p>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
