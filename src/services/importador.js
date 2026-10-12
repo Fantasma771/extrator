@@ -89,11 +89,13 @@ async function carregarReferencias({ dataDir, remoto }, log) {
 /* ------------------------------------------------------------------ */
 /* Fase 1 - Estabelecimentos                                           */
 /* ------------------------------------------------------------------ */
-async function importarEstabelecimentos({ dataDir, remoto, uf, batch, limit, cnaes, motivos }, ctl) {
+async function importarEstabelecimentos({ dataDir, remoto, uf, batch, limit, cnaes, motivos, municipiosAlvo, nomesMunicipios }, ctl) {
   const fontes = resolverFontes('estabelecimentos', { dataDir, remoto });
   if (!fontes.length) throw new Error('Nenhum arquivo de Estabelecimentos disponivel.');
 
-  ctl.fase('Estabelecimentos', 1, fontes.length);
+  ctl.fase('Estabelecimentos', 2, fontes.length);
+  const soCidade = municipiosAlvo && municipiosAlvo.size > 0;
+  if (soCidade) ctl.log(`Filtrando apenas ${municipiosAlvo.size} municipio(s): ${[...municipiosAlvo].join(', ')}`);
 
   let buffer = [];
   let processados = 0;
@@ -123,6 +125,9 @@ async function importarEstabelecimentos({ dataDir, remoto, uf, batch, limit, cna
 
       const ufLinha = (c[19] || '').trim().toUpperCase();
       if (uf && ufLinha !== uf) { ignorados += 1; return undefined; }
+
+      const codigoMunicipio = apenasDigitos(c[20]);
+      if (soCidade && !municipiosAlvo.has(codigoMunicipio)) { ignorados += 1; return undefined; }
       if (limit && importados + buffer.length >= limit) return undefined;
 
       const cnpjBasico = apenasDigitos(c[0]).padStart(8, '0');
@@ -164,8 +169,8 @@ async function importarEstabelecimentos({ dataDir, remoto, uf, batch, limit, cna
           bairro: c[17],
           cep: apenasDigitos(c[18]),
           uf: ufLinha,
-          municipio: '',
-          codigoMunicipio: apenasDigitos(c[20]),
+          municipio: (nomesMunicipios && nomesMunicipios.get(codigoMunicipio)) || '',
+          codigoMunicipio,
           pais: c[9] || 'BRASIL',
           nomeCidadeExterior: c[8],
         },
@@ -186,8 +191,8 @@ async function importarEstabelecimentos({ dataDir, remoto, uf, batch, limit, cna
   }
 
   await gravar(true);
-  ctl.log(`Estabelecimentos: ${importados} gravados (${processados} linhas lidas, ${ignorados} fora da UF)`);
-  return { empresas: importados, lidos: processados, ignorados };
+  ctl.log(`Estabelecimentos: ${importados} gravados (${processados} linhas lidas, ${ignorados} ignorados por UF/cidade)`);
+  return { empresas: importados, importados, lidos: processados, ignorados };
 }
 
 /* ------------------------------------------------------------------ */
@@ -451,9 +456,13 @@ async function importarSocios({ dataDir, remoto, batch, qualificacoes }, ctl) {
 /* ------------------------------------------------------------------ */
 async function importarMunicipios({ dataDir, remoto }, ctl) {
   const fontes = resolverFontes('municipios', { dataDir, remoto });
-  if (!fontes.length) { ctl.log('[aviso] Municipios.zip nao encontrado.'); return { municipios: 0 }; }
+  const mapa = new Map();
+  if (!fontes.length) {
+    ctl.log('[aviso] Municipios.zip nao encontrado — nomes de municipio ficarao vazios.');
+    return { municipios: 0, mapa };
+  }
 
-  ctl.fase('Municipios', 5, fontes.length);
+  ctl.fase('Municipios', 1, fontes.length);
 
   const ops = [];
   for (const fonte of fontes) {
@@ -461,6 +470,7 @@ async function importarMunicipios({ dataDir, remoto }, ctl) {
       const codigo = apenasDigitos(c[0]);
       const nome = (c[1] || '').trim();
       if (!codigo || !nome) return;
+      mapa.set(codigo, nome);
       ops.push({
         updateOne: {
           filter: { codigo },
@@ -474,29 +484,35 @@ async function importarMunicipios({ dataDir, remoto }, ctl) {
   for (const lote of emLotes(ops, 2000)) {
     await Municipio.bulkWrite(lote, { ordered: false });
   }
-  ctl.log(`Municipios gravados: ${ops.length}`);
+  ctl.log(`Municipios carregados: ${ops.length}`);
 
-  // Preenche o nome do municipio nas empresas a partir do codigo
-  ctl.log('Preenchendo nome do municipio nas empresas...');
-  const municipios = await Municipio.find({}, { codigo: 1, nome: 1 }).lean();
-  let atualizados = 0;
-  for (let i = 0; i < municipios.length; i += 500) {
-    const lote = municipios.slice(i, i + 500);
-    try {
-      const r = await Company.bulkWrite(
-        lote.map((m) => ({
-          updateMany: { filter: { 'endereco.codigoMunicipio': m.codigo }, update: { $set: { 'endereco.municipio': m.nome } } },
-        })),
-        { ordered: false }
-      );
-      atualizados += r.modifiedCount || 0;
-    } catch (_) { /* lotes vazios */ }
-    ctl.progresso({ linhasLidas: municipios.length, gravados: i + lote.length });
-    if (ctl.deveCancelar()) break;
+  // Rede de seguranca: se ja existiam empresas importadas antes (de outra
+  // execucao), preenche o nome do municipio nelas tambem.
+  if (mapa.size) {
+    const semNome = await Company.countDocuments({ 'endereco.municipio': { $in: ['', null] } });
+    if (semNome > 0) {
+      ctl.log(`Preenchendo nome do municipio em ${semNome} empresas ja existentes...`);
+      let atualizados = 0;
+      const municipios = await Municipio.find({}, { codigo: 1, nome: 1 }).lean();
+      for (let i = 0; i < municipios.length; i += 500) {
+        const lote = municipios.slice(i, i + 500);
+        try {
+          const r = await Company.bulkWrite(
+            lote.map((m) => ({
+              updateMany: { filter: { 'endereco.codigoMunicipio': m.codigo, 'endereco.municipio': '' }, update: { $set: { 'endereco.municipio': m.nome } } },
+            })),
+            { ordered: false }
+          );
+          atualizados += r.modifiedCount || 0;
+        } catch (_) { /* lotes vazios */ }
+        ctl.progresso({ linhasLidas: municipios.length, gravados: i + lote.length });
+        if (ctl.deveCancelar()) break;
+      }
+      ctl.log(`Empresas com municipio preenchido: ${atualizados}`);
+    }
   }
 
-  ctl.log(`Empresas com municipio preenchido: ${atualizados}`);
-  return { municipios: ops.length };
+  return { municipios: ops.length, mapa };
 }
 
 /* ------------------------------------------------------------------ */
@@ -505,25 +521,51 @@ async function importarMunicipios({ dataDir, remoto }, ctl) {
 async function executarImportacao(opcoes, ctl) {
   const inicio = Date.now();
   const cfg = {
-    dataDir: opcoes.dataDir || null,
+    // Permite rodar a importacao automatica a partir de arquivos locais
+    // (usado em testes e por quem baixou os arquivos antes).
+    dataDir: opcoes.dataDir || process.env.RECEITA_DATA_DIR || null,
     remoto: opcoes.remoto !== false,
     uf: (opcoes.uf || '').toUpperCase() || null,
     batch: opcoes.batch || 2000,
     limit: opcoes.limit || 0,
   };
+  const cidade = (opcoes.municipio || '').trim();
 
   ctl.log(`Fonte: ${cfg.dataDir ? `pasta local ${cfg.dataDir}` : baseUrl()}`);
-  ctl.log(`UF: ${cfg.uf || 'TODAS (muito pesado!)'} | lote: ${cfg.batch}`);
+  ctl.log(`UF: ${cfg.uf || 'TODAS (muito pesado!)'} | cidade: ${cidade || 'todas'} | lote: ${cfg.batch}`);
 
   if (opcoes.drop) {
     ctl.log('Apagando a colecao de empresas (--drop)...');
     await Company.deleteMany({});
   }
 
+  // ------------------------------------------------------------------
+  // FASE 1 - Municipios PRIMEIRO: precisamos do mapa codigo->nome tanto
+  // para gravar o nome da cidade direto na empresa quanto para descobrir
+  // o codigo IBGE da cidade escolhida pelo usuario.
+  // ------------------------------------------------------------------
+  const refMunicipios = await importarMunicipios(cfg, ctl);
+  if (ctl.deveCancelar()) throw new Error('CANCELADO');
+
+  let municipiosAlvo = null;
+  if (cidade) {
+    municipiosAlvo = await resolverCodigosMunicipio(cfg.uf, cidade);
+    if (!municipiosAlvo.size) {
+      throw new Error(
+        `Nao encontrei o municipio "${cidade}" na base oficial da Receita${cfg.uf ? ` para a UF ${cfg.uf}` : ''}. ` +
+        'Confira o nome (ex: "Sao Paulo", "Vitoria", "Belo Horizonte").'
+      );
+    }
+    ctl.log(`Escopo: SOMENTE ${cidade} (codigo ${[...municipiosAlvo].join(', ')})`);
+  }
+
   const refs = await carregarReferencias(cfg, ctl.log);
   if (ctl.deveCancelar()) throw new Error('CANCELADO');
 
-  const r1 = await importarEstabelecimentos({ ...cfg, cnaes: refs.cnaes, motivos: refs.motivos }, ctl);
+  const r1 = await importarEstabelecimentos(
+    { ...cfg, cnaes: refs.cnaes, motivos: refs.motivos, municipiosAlvo, nomesMunicipios: refMunicipios.mapa },
+    ctl
+  );
   if (ctl.deveCancelar()) throw new Error('CANCELADO');
 
   await importarEmpresas({ ...cfg, naturezas: refs.naturezas }, ctl);
@@ -539,11 +581,6 @@ async function executarImportacao(opcoes, ctl) {
   await Company.syncIndexes();
   await Municipio.syncIndexes();
 
-  if (!opcoes.skipSocios && !ctl.deveCancelar()) {
-    ctl.fase('Municipios', 5, 5);
-    await importarMunicipios(cfg, ctl);
-  }
-
   const porUf = await Company.aggregate([
     { $group: { _id: { uf: '$endereco.uf', m: '$endereco.municipio' }, total: { $sum: 1 } } },
     { $group: { _id: '$_id.uf', municipios: { $sum: 1 }, total: { $sum: '$total' } } },
@@ -556,10 +593,37 @@ async function executarImportacao(opcoes, ctl) {
   return {
     empresas,
     socios: socios[0]?.t || 0,
-    municipios: r1.ignorados,
+    municipios: r1.importados,
+    escopo: cidade ? 'municipio' : 'estado',
+    municipiosAlvo: municipiosAlvo ? [...municipiosAlvo] : [],
     duracaoMs: Date.now() - inicio,
     porUf: porUf.map((r) => ({ uf: r._id, municipios: r.municipios, total: r.total })),
   };
+}
+
+/**
+ * Descobre o(s) codigo(s) IBGE de um municipio pelo nome.
+ * Aceita nome exato, sem acento e tambem busca por prefixo.
+ */
+async function resolverCodigosMunicipio(uf, nome) {
+  const alvo = normalizar(nome);
+  if (!alvo) return new Set();
+
+  const filtroBase = uf ? { uf } : {};
+  const exatos = await Municipio.find({ ...filtroBase, nomeNormalizado: alvo }, { codigo: 1 }).lean();
+  if (exatos.length) return new Set(exatos.map((m) => m.codigo));
+
+  // tenta "sao paulo" -> "saopaulo", "vitoria" -> "vitoria"
+  const semEspaco = alvo.replace(/\s+/g, '');
+  const todos = await Municipio.find(filtroBase, { codigo: 1, nomeNormalizado: 1 }).lean();
+  const achados = todos.filter((m) => m.nomeNormalizado.replace(/\s+/g, '') === semEspaco);
+  if (achados.length) return new Set(achados.map((m) => m.codigo));
+
+  // ultimo recurso: prefixo (ex: "belo horizonte" -> "belo horizonte")
+  const prefixo = todos.filter((m) => m.nomeNormalizado.startsWith(alvo));
+  if (prefixo.length && prefixo.length <= 5) return new Set(prefixo.map((m) => m.codigo));
+
+  return new Set();
 }
 
 /* ------------------------------------------------------------------ */
@@ -575,8 +639,12 @@ function jobAtivo() {
 async function iniciarJob(opcoes = {}) {
   if (ativos.size) throw new Error('JA_EXISTE_IMPORTACAO_EM_ANDAMENTO');
 
+  const cidade = (opcoes.municipio || '').trim();
   const job = await ImportJob.create({
     uf: (opcoes.uf || '').toUpperCase() || 'TODAS',
+    municipio: cidade,
+    escopo: cidade ? 'municipio' : 'estado',
+    origem: opcoes.origem === 'automatico' ? 'automatico' : 'manual',
     opcoes: {
       drop: !!opcoes.drop,
       skipSocios: !!opcoes.skipSocios,

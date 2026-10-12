@@ -65,7 +65,22 @@ app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 
 // Dashboard
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', index: 'index.html' }));
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    index: 'index.html',
+    etag: true,
+    lastModified: true,
+    setHeaders(res, filePath) {
+      // HTML/CSS/JS NUNCA ficam presos em cache: o navegador sempre revalida.
+      // Com ETag a revalidacao vira um 304 instantaneo, entao nao ha custo.
+      if (/\.(html|css|js)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+      }
+    },
+  })
+);
 
 // Fallback (funciona em Express 4 e 5): SPA + 404 de API
 app.use((req, res) => {

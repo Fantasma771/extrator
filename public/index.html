@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="styles.css?v=5" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
@@ -421,9 +421,23 @@
 </div>
 
 <div class="toast-wrap" id="toastWrap"></div>
-<div class="loader" id="loader" hidden><div class="loader-ring"></div><span>ESCANEANDO BASE...</span></div>
+<div class="loader" id="loader" hidden style="display:none"><div class="loader-ring"></div><span>ESCANEANDO BASE...</span></div>
+
+<!-- ============== PREPARACAO AUTOMATICA DA BASE (importacao) ============== -->
+<div class="prep-overlay" id="prepOverlay" hidden style="display:none">
+  <div class="prep-box">
+    <div class="prep-ring"></div>
+    <h3 id="prepTitulo">Preparando a base...</h3>
+    <p class="prep-sub" id="prepSub"></p>
+    <div class="progress-bar"><div class="progress-fill" id="prepFill"></div></div>
+    <div class="progress-text"><span id="prepFase">iniciando...</span><span id="prepTempo"></span></div>
+    <div class="prep-stats" id="prepStats"></div>
+    <pre class="imp-log" id="prepLog"></pre>
+    <p class="prep-hint">A importacao roda <b>no servidor</b>. Voce pode fechar esta janela — ela continua.</p>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

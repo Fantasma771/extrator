@@ -366,6 +366,32 @@ a { color: var(--gold); text-decoration: none; }
 .loader-ring { width: 62px; height: 62px; border-radius: 50%; border: 2px solid rgba(212,175,55,0.18); border-top-color: var(--gold); animation: spin 0.9s linear infinite; box-shadow: 0 0 30px rgba(212,175,55,0.35); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ==========================================================================
+   PREPARACAO AUTOMATICA DA BASE (overlay de importacao)
+   ========================================================================== */
+.prep-overlay {
+  position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(3,3,4,0.88); backdrop-filter: blur(10px); animation: fadeIn 0.25s ease;
+}
+.prep-box {
+  width: 100%; max-width: 620px; padding: 34px 32px 26px; text-align: center;
+  border-radius: var(--radius); border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(26,22,12,0.96), rgba(10,9,7,0.98));
+  box-shadow: 0 0 0 1px rgba(212,175,55,0.12), 0 40px 90px -30px rgba(212,175,55,0.45);
+}
+.prep-ring {
+  width: 68px; height: 68px; margin: 0 auto 20px; border-radius: 50%;
+  border: 2px solid rgba(212,175,55,0.16); border-top-color: var(--gold);
+  animation: spin 0.9s linear infinite; box-shadow: 0 0 34px rgba(212,175,55,0.4);
+}
+.prep-box h3 { font-size: 1.02rem; color: var(--gold-light); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.prep-sub { font-size: 0.88rem; color: var(--muted); line-height: 1.65; margin-bottom: 22px; }
+.prep-stats { margin-top: 14px; font-size: 0.86rem; color: var(--muted); letter-spacing: 0.04em; }
+.prep-stats b { color: var(--gold-light); font-family: 'Orbitron', monospace; }
+.prep-hint { margin-top: 16px; font-size: 0.74rem; color: #6b6659; line-height: 1.6; }
+.prep-hint b { color: var(--gold); }
+.prep-box .imp-log { text-align: left; max-height: 170px; }
+
 /* ------------------------------ FOOTER ------------------------------ */
 .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 24px 4px 0; font-size: 0.76rem; color: #5f5a4e; letter-spacing: 0.06em; border-top: 1px solid rgba(212,175,55,0.1); }
 

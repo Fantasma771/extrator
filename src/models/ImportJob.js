@@ -5,6 +5,9 @@ const { mongoose } = require('../db');
 const ImportJobSchema = new mongoose.Schema(
   {
     uf: { type: String, index: true },
+    municipio: { type: String, default: '' },
+    escopo: { type: String, default: 'estado' }, // estado | municipio
+    origem: { type: String, default: 'manual' }, // manual | automatico
     opcoes: {
       drop: Boolean,
       skipSocios: Boolean,
@@ -32,6 +35,8 @@ const ImportJobSchema = new mongoose.Schema(
       empresas: Number,
       socios: Number,
       municipios: Number,
+      escopo: String,
+      municipiosAlvo: [String],
       duracaoMs: Number,
       porUf: [{ uf: String, municipios: Number, total: Number, _id: false }],
     },

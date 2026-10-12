@@ -452,4 +452,147 @@ router.get('/socios', async (req, res, next) => {
   }
 });
 
+/* ================================================================== */
+/* PREPARACAO AUTOMATICA DA BASE                                       */
+/* O usuario escolhe estado + cidade e o sistema importa o que falta.  */
+/* ================================================================== */
+const importador = require('../services/importador');
+const ImportJob = require('../models/ImportJob');
+
+/** Versao enxuta do job, para o dashboard acompanhar */
+function resumoJob(job) {
+  if (!job) return null;
+  const j = job.toJSON ? job.toJSON() : job;
+  return {
+    id: String(j._id || j.id || ''),
+    uf: j.uf,
+    municipio: j.municipio || '',
+    escopo: j.escopo || 'estado',
+    origem: j.origem || 'manual',
+    status: j.status,
+    fase: j.fase,
+    faseNumero: j.faseNumero,
+    totalFases: j.totalFases,
+    progresso: j.progresso || {},
+    log: (j.log || []).slice(-40),
+    erro: j.erro,
+    iniciadoEm: j.iniciadoEm,
+    resultado: j.resultado,
+  };
+}
+
+function autoImportLigado() {
+  return String(process.env.AUTO_IMPORT || 'true').toLowerCase() !== 'false';
+}
+
+/* ------------------------------------------------------------------ */
+/* GET /api/status?uf=ES&municipio=Vitoria                             */
+/* Diz se a base ja tem os dados pedidos e se precisa importar.        */
+/* ------------------------------------------------------------------ */
+router.get('/status', async (req, res, next) => {
+  try {
+    const uf = String(req.query.uf || '').toUpperCase().trim();
+    const municipio = String(req.query.municipio || '').trim();
+
+    const filtroCidade = {};
+    if (uf) filtroCidade['endereco.uf'] = uf;
+    if (municipio) filtroCidade['endereco.municipio'] = municipio;
+
+    const [total, totalUf] = await Promise.all([
+      Company.countDocuments(filtroCidade),
+      uf ? Company.countDocuments({ 'endereco.uf': uf }) : Company.estimatedDocumentCount(),
+    ]);
+
+    // Historico de importacoes concluidas define o que ja foi carregado
+    const [jobEstado, jobCidade] = await Promise.all([
+      uf ? ImportJob.findOne({ uf, escopo: 'estado', status: 'concluido' }).sort({ finalizadoEm: -1 }).lean() : null,
+      uf && municipio ? ImportJob.findOne({ uf, municipio, status: 'concluido' }).sort({ finalizadoEm: -1 }).lean() : null,
+    ]);
+
+    const estadoCarregado = !!jobEstado;
+    const cidadeCarregada = estadoCarregado || !!jobCidade;
+
+    let precisaImportar = false;
+    let motivo = '';
+    if (total > 0) {
+      motivo = 'dados ja disponiveis';
+    } else if (!uf) {
+      motivo = 'informe um estado para preparar a base';
+    } else if (municipio) {
+      precisaImportar = !cidadeCarregada;
+      motivo = precisaImportar ? `a cidade ${municipio} ainda nao foi importada` : 'cidade importada, sem empresas';
+    } else {
+      precisaImportar = !estadoCarregado && totalUf === 0;
+      motivo = precisaImportar ? `o estado ${uf} ainda nao foi importado` : 'estado ja disponivel';
+    }
+
+    if (precisaImportar && !autoImportLigado()) {
+      precisaImportar = false;
+      motivo = 'importacao automatica desligada (AUTO_IMPORT=false)';
+    }
+
+    const jobId = importador.jobAtivo();
+    const job = jobId ? await importador.obterJob(jobId) : null;
+
+    res.json({
+      ok: true,
+      data: {
+        uf,
+        municipio,
+        total,
+        totalUf,
+        precisaImportar,
+        motivo,
+        autoImport: autoImportLigado(),
+        escopo: municipio ? 'municipio' : 'estado',
+        job: resumoJob(job),
+      },
+    });
+  } catch (erro) {
+    next(erro);
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* POST /api/preparar  { uf, municipio }                               */
+/* Dispara a importacao do que falta, sem o usuario precisar fazer nada */
+/* ------------------------------------------------------------------ */
+router.post('/preparar', async (req, res, next) => {
+  try {
+    if (!autoImportLigado()) {
+      return res.status(403).json({
+        ok: false,
+        error: 'AUTO_IMPORT_DESLIGADO',
+        message: 'A importacao automatica esta desligada (AUTO_IMPORT=false). Use o painel ADMIN.',
+      });
+    }
+
+    const uf = String((req.body && req.body.uf) || req.query.uf || '').toUpperCase().trim();
+    const municipio = String((req.body && req.body.municipio) || req.query.municipio || '').trim();
+
+    if (!uf) {
+      return res.status(400).json({
+        ok: false,
+        error: 'UF_OBRIGATORIA',
+        message: 'Escolha um estado para o sistema preparar a base.',
+      });
+    }
+
+    // Ja existe uma importacao rodando? Aproveita ela em vez de criar outra.
+    const jaRodando = importador.jobAtivo();
+    if (jaRodando) {
+      return res.json({ ok: true, data: { jobId: jaRodando, jaRodando: true } });
+    }
+
+    const job = await importador.iniciarJob({ uf, municipio, origem: 'automatico', remoto: true });
+    return res.json({ ok: true, data: { jobId: String(job._id), jaRodando: false } });
+  } catch (erro) {
+    if (erro.message === 'JA_EXISTE_IMPORTACAO_EM_ANDAMENTO') {
+      const id = importador.jobAtivo();
+      return res.json({ ok: true, data: { jobId: id, jaRodando: true } });
+    }
+    return next(erro);
+  }
+});
+
 module.exports = router;

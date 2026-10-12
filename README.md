@@ -88,7 +88,8 @@ git push -u origin main
 | Key | Value | Obrigatória |
 |---|---|---|
 | `MONGODB_URI` | sua string do Atlas | ✅ sim |
-| `ADMIN_TOKEN` | senha do painel de importação | ✅ sim |
+| `ADMIN_TOKEN` | senha do painel ADMIN (opcional se usar só a importação automática) | recomendada |
+| `AUTO_IMPORT` | `true` = importa sozinho ao buscar (padrão). `false` desliga | opcional |
 | `NODE_ENV` | `production` | recomendada |
 | `API_KEY` | protege também a API pública | opcional |
 | `CORS_ORIGIN` | `*` | opcional |
@@ -96,7 +97,25 @@ git push -u origin main
 > Alternativamente use o arquivo `render.yaml` (Blueprint) já incluído: **New → Blueprint** e aponte para o repositório.
 > Ele já cria o `ADMIN_TOKEN` automaticamente (`generateValue: true`) — depois copie o valor em **Environment** e cole no dashboard.
 
-### 4. Importe os dados **pelo próprio Render** (sem usar sua máquina)
+### 4. Pronto — é só usar! (importação 100% automática)
+
+**Você não precisa importar nada.** Escolha o **Estado**, digite a **cidade** e clique em **BUSCAR EMPRESAS**.
+
+Se a base ainda não tiver aquela cidade, o sistema:
+1. Detecta sozinho que falta
+2. Baixa os dados oficiais da Receita Federal **em streaming, dentro do Render**
+3. Grava no MongoDB mostrando o **progresso ao vivo**
+4. Roda a busca automaticamente quando terminar
+
+Da segunda vez em diante, a mesma cidade responde **na hora**.
+
+> ⏱️ A primeira busca de uma cidade leva de **40 min a 3 h** (é o download oficial). Pode fechar a janela — continua rodando no servidor.
+>
+> 🗂️ O sistema importa **somente a cidade pedida**, não o estado inteiro — assim seu banco do Atlas não estoura.
+
+---
+
+### (Avançado) Importar manualmente pelo painel ADMIN
 
 Abra a URL do serviço → botão **⚙ ADMIN** no topo → escolha o **Estado** → **▶ IMPORTAR AGORA**.
 

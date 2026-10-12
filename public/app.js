@@ -83,12 +83,15 @@ function loader(on) {
   const el = $('#loader');
   if (!el) return;
   el.hidden = !on;
+  // Estilo inline vence qualquer regra de classe — funciona mesmo com CSS em cache
+  el.style.display = on ? 'flex' : 'none';
   clearTimeout(loaderWatchdog);
   if (on) {
     // Rede de seguranca: nenhuma tela de carregamento pode ficar presa
     loaderWatchdog = setTimeout(() => {
-      if (!el.hidden) {
+      if (el.style.display !== 'none') {
         el.hidden = true;
+        el.style.display = 'none';
         toast('A operacao demorou demais e foi interrompida. Verifique a conexao com o banco.', 'err', 9000);
       }
     }, 45000);
@@ -140,10 +143,16 @@ function comTimeout(signal, ms = 25000) {
   }
 }
 
-async function api(caminho, params, signal) {
+async function api(caminho, params, signal, opcoes = {}) {
   let resp;
+  const cfg = { headers: { ...cabecalhos() }, signal: comTimeout(signal, opcoes.timeout || 25000) };
+  if (opcoes.method) cfg.method = opcoes.method;
+  if (opcoes.body !== undefined) {
+    cfg.headers['Content-Type'] = 'application/json';
+    cfg.body = JSON.stringify(opcoes.body);
+  }
   try {
-    resp = await fetch(montarUrl(caminho, params), { headers: cabecalhos(), signal: comTimeout(signal) });
+    resp = await fetch(montarUrl(caminho, params), cfg);
   } catch (e) {
     if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
       throw new Error('Tempo esgotado ao falar com a API (25s). O servidor ou o banco podem estar lentos.');
@@ -190,8 +199,112 @@ function descreverAlvo(f) {
   return partes.length ? partes.join(' · ') : 'todos os filtros atuais';
 }
 
+/* ---------------------- PREPARACAO AUTOMATICA DA BASE ---------------------- */
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function abrirPrep(titulo, sub) {
+  $('#prepTitulo').textContent = titulo;
+  $('#prepSub').textContent = sub;
+  $('#prepLog').textContent = '';
+  $('#prepStats').innerHTML = '';
+  $('#prepFill').style.width = '0%';
+  $('#prepFase').textContent = 'iniciando...';
+  $('#prepTempo').textContent = '';
+  const el = $('#prepOverlay');
+  el.hidden = false;
+  el.style.display = 'flex';
+}
+
+function fecharPrep() {
+  const el = $('#prepOverlay');
+  if (!el) return;
+  el.hidden = true;
+  el.style.display = 'none';
+}
+
+function renderPrep(job, inicio) {
+  if (!job) return;
+  const p = job.progresso || {};
+  const fracao = (job.faseNumero || 0) / (job.totalFases || 5);
+  const dentro = p.totalArquivos ? (p.arquivoNumero || 0) / p.totalArquivos : 0;
+  const pct = Math.min(fracao * 80 + dentro * 20, 99);
+  $('#prepFill').style.width = `${pct.toFixed(0)}%`;
+  $('#prepFase').textContent = `${job.fase || 'iniciando'}${p.arquivo ? ` · ${p.arquivo}` : ''}`;
+
+  const desde = new Date(job.iniciadoEm || inicio || Date.now()).getTime();
+  const seg = Math.max(Math.round((Date.now() - desde) / 1000), 0);
+  $('#prepTempo').textContent = seg < 60 ? `${seg}s` : `${Math.floor(seg / 60)}min ${seg % 60}s`;
+
+  $('#prepStats').innerHTML =
+    `Linhas lidas: <b>${fmtNum(p.linhasLidas || 0)}</b> · Empresas gravadas: <b>${fmtNum(p.gravados || 0)}</b>`;
+  $('#prepLog').textContent = (job.log || []).join('\n');
+  $('#prepLog').scrollTop = $('#prepLog').scrollHeight;
+}
+
+/**
+ * Garante que a base tem os dados do estado/cidade escolhidos.
+ * Se nao tiver, dispara a importacao no servidor e acompanha ate terminar.
+ */
+async function garantirBase(filtros) {
+  if (!filtros.uf && !filtros.municipio) return true;
+
+  let st;
+  try {
+    st = await api('/api/status', { uf: filtros.uf, municipio: filtros.municipio });
+  } catch (e) {
+    console.warn('[status]', e.message);
+    return true; // se o status falhar, segue com a busca normal
+  }
+  if (!st.data.precisaImportar) return true;
+
+  const alvo = filtros.municipio ? `${filtros.municipio}/${filtros.uf}` : filtros.uf;
+  abrirPrep(
+    `Preparando ${alvo}...`,
+    `Primeira busca em ${alvo}: o sistema vai baixar os dados oficiais da Receita Federal e gravar no banco. ` +
+    'Isso roda no servidor — voce nao precisa fazer nada. Pode levar de 40 min a 3 h.'
+  );
+  loader(false);
+
+  const inicio = Date.now();
+
+  // Se ja existe uma importacao rodando, aproveita ela
+  if (!(st.data.job && st.data.job.status === 'executando')) {
+    const r = await api('/api/preparar', null, null, {
+      method: 'POST',
+      body: { uf: filtros.uf, municipio: filtros.municipio },
+      timeout: 30000,
+    });
+    if (r.data && r.data.jobId) st.data.job = { id: r.data.jobId, status: 'executando' };
+  }
+
+  // Acompanha por polling (simples e imune a proxy)
+  for (let i = 0; i < 3600; i += 1) {
+    await dormir(3000);
+    let s;
+    try {
+      s = await api('/api/status', { uf: filtros.uf, municipio: filtros.municipio });
+    } catch (_) {
+      continue; // servidor reiniciando: tenta de novo
+    }
+    if (s.data.job) renderPrep(s.data.job, inicio);
+
+    if (!s.data.precisaImportar) {
+      fecharPrep();
+      toast(`Base de ${alvo} pronta! Carregando os resultados...`, 'ok', 6000);
+      return true;
+    }
+    if (s.data.job && s.data.job.status !== 'executando') {
+      fecharPrep();
+      throw new Error(s.data.job.erro || `A importacao de ${alvo} terminou sem gravar dados.`);
+    }
+  }
+
+  fecharPrep();
+  throw new Error('A importacao esta demorando mais que o esperado. Acompanhe pelo painel ADMIN.');
+}
+
 /* ----------------------------- BUSCA ----------------------------- */
-async function buscar(resetPagina = true) {
+async function buscar(resetPagina = true, permitirImportar = false) {
   if (resetPagina) state.page = 1;
   loader(true);
 
@@ -200,6 +313,12 @@ async function buscar(resetPagina = true) {
     const filtros = lerFiltros();
     state.ultimaConsulta = filtros;
     state.ordenar = filtros.ordenar;
+
+    // 1) Se a base ainda nao tem esses dados, importa automaticamente
+    //    (somente quando o usuario pediu a busca explicitamente)
+    if (permitirImportar) await garantirBase(filtros);
+
+    // 2) Busca normal
     const params = { ...filtros, page: state.page, limit: state.limit };
 
     const [res, stats, contagem] = await Promise.all([
@@ -221,9 +340,10 @@ async function buscar(resetPagina = true) {
   } catch (e) {
     if (e.message === 'NAO_AUTORIZADO') { setStatus('err', 'Chave invalida'); toast('Chave de API invalida. Abra as Configuracoes.', 'err'); }
     else if (String(e.message).includes('BANCO_DESCONECTADO')) { setStatus('err', 'Banco offline'); toast('MongoDB desconectado. Verifique MONGODB_URI.', 'err'); }
-    else { setStatus('err', 'Erro na busca'); toast(`Erro: ${e.message}`, 'err'); }
+    else { setStatus('err', 'Erro na busca'); toast(`Erro: ${e.message}`, 'err', 9000); }
     renderTabela([]);
   } finally {
+    fecharPrep();
     loader(false);
   }
 }
@@ -996,10 +1116,11 @@ async function carregarMeta() {
 function relogio() { $('#clock').textContent = new Date().toLocaleTimeString('pt-BR'); }
 
 function bindEventos() {
-  $('#btnBuscar').addEventListener('click', () => buscar(true));
-  $('#btnBuscaRapida').addEventListener('click', () => { $('#fQ').value = $('#buscaRapida').value.trim(); buscar(true); });
-  $('#buscaRapida').addEventListener('keydown', (e) => { if (e.key === 'Enter') { $('#fQ').value = $('#buscaRapida').value.trim(); buscar(true); } });
-  $('#fQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(true); });
+  // Busca explicita: pode disparar a importacao automatica
+  $('#btnBuscar').addEventListener('click', () => buscar(true, true));
+  $('#btnBuscaRapida').addEventListener('click', () => { $('#fQ').value = $('#buscaRapida').value.trim(); buscar(true, true); });
+  $('#buscaRapida').addEventListener('keydown', (e) => { if (e.key === 'Enter') { $('#fQ').value = $('#buscaRapida').value.trim(); buscar(true, true); } });
+  $('#fQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar(true, true); });
 
   $('#btnLimpar').addEventListener('click', () => {
     ['#fMunicipio', '#fCnae', '#fNatureza', '#fAberturaDe', '#fAberturaAte', '#fCapitalMin', '#fCapitalMax', '#fQ'].forEach((s) => { $(s).value = ''; });
