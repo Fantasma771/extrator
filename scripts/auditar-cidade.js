@@ -26,11 +26,12 @@
 
 require('dotenv').config();
 
+const fs = require('fs');
 const path = require('path');
 const { connect, mongoose } = require('../src/db');
 const Company = require('../src/models/Company');
 const Municipio = require('../src/models/Municipio');
-const { lerCsv, listarFontes } = require('../src/lib/csv');
+const { resolverFontes, lerFonte } = require('../src/lib/fontes');
 const { normalizar, formatarCnpj, apenasDigitos, emLotes } = require('../src/lib/normalize');
 const { SITUACOES } = require('../src/lib/tables');
 
@@ -93,10 +94,10 @@ Uso: node scripts/auditar-cidade.js --uf UF (--municipio NOME | --codigo CODIGO)
     process.exit(args.help ? 0 : 1);
   }
 
-  const dataDir = path.resolve(args.dataDir);
-  const arquivos = listarFontes(dataDir, ['estabelecimentos', 'estabelecimento', 'est']);
-  if (!arquivos.length) {
-    console.error(`Nenhum arquivo de Estabelecimentos encontrado em ${dataDir}`);
+  const dataDir = args.dataDir && fs.existsSync(args.dataDir) ? path.resolve(args.dataDir) : null;
+  const fontes = resolverFontes('estabelecimentos', { dataDir, remoto: true });
+  if (!fontes.length) {
+    console.error(`Nenhum arquivo de Estabelecimentos encontrado em ${dataDir || args.dataDir}`);
     process.exit(1);
   }
 
@@ -111,7 +112,7 @@ Uso: node scripts/auditar-cidade.js --uf UF (--municipio NOME | --codigo CODIGO)
   console.log('============================================================');
   console.log(' AUDITORIA DE COMPLETUDE');
   console.log('============================================================');
-  console.log(` Fonte     : ${dataDir}`);
+  console.log(` Fonte     : ${dataDir ? `pasta local ${dataDir}` : 'streaming da internet (' + require('../src/lib/fontes').baseUrl() + ')'}`);
   console.log(` Municipio : ${alvo.nome} / ${alvo.uf} (codigo ${alvo.codigo || 'nao informado'})`);
   console.log('============================================================\n');
 
@@ -160,8 +161,9 @@ Uso: node scripts/auditar-cidade.js --uf UF (--municipio NOME | --codigo CODIGO)
     process.stdout.write(`\r        linhas lidas: ${linhasLidas} | do municipio: ${linhasDoMunicipio} | faltantes: ${faltantes}   `);
   };
 
-  for (const arquivo of arquivos) {
-    await lerCsv(arquivo, async (c) => {
+  for (const fonte of fontes) {
+    process.stdout.write(`\r        lendo ${fonte.nome}...\n`);
+    await lerFonte(fonte, async (c) => {
       linhasLidas += 1;
       if (c.length < 21) return;
       const ufLinha = (c[19] || '').trim().toUpperCase();
@@ -188,7 +190,7 @@ Uso: node scripts/auditar-cidade.js --uf UF (--municipio NOME | --codigo CODIGO)
   const resultado = {
     municipio: alvo,
     fonte: {
-      arquivos: arquivos.length,
+      arquivos: fontes.length,
       linhasLidas,
       empresasNoMunicipio: linhasDoMunicipio,
       duplicados: duplicadosNaFonte,

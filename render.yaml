@@ -2,7 +2,7 @@ services:
   - type: web
     name: buscador-empresas-br
     runtime: node
-    plan: starter
+    plan: starter            # o plano free hiberna; starter mantem a importacao viva
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
@@ -11,8 +11,25 @@ services:
       - key: NODE_ENV
         value: production
       - key: MONGODB_URI
-        sync: false          # preencha no painel do Render
+        sync: false          # cole aqui a string de conexao do MongoDB Atlas
+      - key: ADMIN_TOKEN
+        generateValue: true  # o Render cria um token forte sozinho (copie e cole em Configuracoes)
       - key: API_KEY
-        sync: false          # opcional
+        sync: false          # opcional: protege a API publica
       - key: CORS_ORIGIN
         value: "*"
+
+# ---------------------------------------------------------------------------
+# OPCIONAL - Atualizacao automatica mensal (plano pago do Render)
+# A Receita Federal publica uma base nova por mes. Descomente para atualizar
+# sozinho todo dia 1 as 04:00. Se preferir, use o painel ADMIN do dashboard.
+# ---------------------------------------------------------------------------
+#  - type: cron
+#    name: atualizar-base-cnpj
+#    runtime: node
+#    schedule: "0 4 1 * *"
+#    buildCommand: npm install
+#    startCommand: node scripts/import-receita.js --uf SP
+#    envVars:
+#      - key: MONGODB_URI
+#        sync: false

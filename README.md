@@ -79,22 +79,52 @@ git push -u origin main
 ### 3. Crie o Web Service no Render
 - **New** → **Web Service** → conecte o repositório
 - **Runtime:** Node
+- **Plan:** **Starter** (o plano free hiberna e pode matar uma importação longa)
 - **Build Command:** `npm install`
 - **Start Command:** `npm start`
 - **Health Check Path:** `/health`
 - Em **Environment Variables**, adicione:
 
-| Key | Value |
-|---|---|
-| `MONGODB_URI` | sua string do Atlas |
-| `NODE_ENV` | `production` |
-| `API_KEY` | *(opcional)* chave para proteger a API |
-| `CORS_ORIGIN` | `*` |
+| Key | Value | Obrigatória |
+|---|---|---|
+| `MONGODB_URI` | sua string do Atlas | ✅ sim |
+| `ADMIN_TOKEN` | senha do painel de importação | ✅ sim |
+| `NODE_ENV` | `production` | recomendada |
+| `API_KEY` | protege também a API pública | opcional |
+| `CORS_ORIGIN` | `*` | opcional |
 
 > Alternativamente use o arquivo `render.yaml` (Blueprint) já incluído: **New → Blueprint** e aponte para o repositório.
+> Ele já cria o `ADMIN_TOKEN` automaticamente (`generateValue: true`) — depois copie o valor em **Environment** e cole no dashboard.
 
-### 4. Importe os dados
-O Render não roda scripts de importação automaticamente. Rode a importação **na sua máquina**, apontando o `.env` para o **mesmo MongoDB do Render**:
+### 4. Importe os dados **pelo próprio Render** (sem usar sua máquina)
+
+Abra a URL do serviço → botão **⚙ ADMIN** no topo → escolha o **Estado** → **▶ IMPORTAR AGORA**.
+
+A importação roda no servidor do Render: baixa os arquivos da Receita Federal em *streaming* (sem gravar nada em disco), grava no MongoDB e mostra o progresso ao vivo. Você pode fechar a janela — ela continua rodando.
+
+> 🔐 Na primeira vez o painel pede o **ADMIN_TOKEN**. Cole-o em **⚙ Configurações → Token de administração** (fica salvo no seu navegador).
+
+> ⏱️ Um estado inteiro leva de **40 min a 3 h** (depende do tamanho). Para testar rápido, use o campo *Limitar registros* com `5000`.
+
+---
+
+## ☁️ Passo a passo resumido (tudo dentro do Render)
+
+```
+1. MongoDB Atlas  -> criar cluster M0/M10 -> copiar a connection string
+2. GitHub         -> subir este projeto
+3. Render         -> New > Web Service (Node) -> Build: npm install | Start: npm start
+                     Env: MONGODB_URI + ADMIN_TOKEN (+ NODE_ENV=production)
+4. Abrir a URL    -> Configuracoes -> colar o ADMIN_TOKEN
+5. ADMIN          -> escolher UF -> IMPORTAR AGORA
+6. Aguardar o progresso ao vivo (pode fechar a janela)
+7. Buscar/baixar as empresas normalmente
+```
+
+Nenhum passo exige instalar nada na sua máquina.
+
+### (Alternativa) Importar pela linha de comando
+Se preferir rodar na sua máquina, o motor é o mesmo:
 
 ```bash
 npm run import -- --uf SP
@@ -105,6 +135,8 @@ Como os dados ficam no Atlas (e não no disco do Render), o dashboard em produç
 ---
 
 ## 📥 Importando os dados reais da Receita Federal
+
+> 💡 **Forma mais simples:** use o painel **⚙ ADMIN** do dashboard — ele faz tudo isso automaticamente dentro do Render. O procedimento abaixo é para quem quer rodar manualmente / offline.
 
 Fonte oficial: **https://dadosabertos.rfb.gov.br/CNPJ/**
 
@@ -159,6 +191,24 @@ Base: `https://SEU-APP.onrender.com/api`
 | GET | `/socios?q=MARIA` | Busca direta por nome de sócio |
 | GET | `/export` | **Exportação completa**, streaming, sem limite de linhas |
 
+### Endpoints de administração (exigem `ADMIN_TOKEN`)
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/admin/diagnostico` | Estado da base, UFs importadas, memória, uptime |
+| POST | `/api/admin/import` | **Inicia a importação no servidor** `{ uf, limit, drop, skipSocios, skipSimples }` |
+| GET | `/api/admin/imports` | Histórico das importações |
+| GET | `/api/admin/import/:id` | Status/progresso de um job |
+| GET | `/api/admin/import/:id/eventos` | **SSE** com progresso ao vivo |
+| POST | `/api/admin/import/:id/cancelar` | Cancela a importação em andamento |
+
+```bash
+curl -X POST https://SEU-APP.onrender.com/api/admin/import \
+  -H "x-admin-token: SEU_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"uf":"ES"}'
+```
+
 ### `/export` — extração total
 
 | Parâmetro | Valores | Padrão |
@@ -204,7 +254,7 @@ curl "https://SEU-APP.onrender.com/api/companies?uf=SP&municipio=Santos&tipo=LTD
 
 Três camadas garantem que nenhuma empresa fique de fora:
 
-**1. Importação completa** — o importador grava **todos** os estabelecimentos do estado (matriz + filiais), sem amostragem. É *idempotente*: se cair no meio, rode de novo e ele complementa sem duplicar (índice `unique` no CNPJ).
+**1. Importação completa (roda no Render)** — o painel **⚙ ADMIN** dispara a importação no próprio servidor, baixando os arquivos da Receita Federal **em streaming** (sem disco, sem usar sua máquina), com progresso ao vivo, cancelamento e histórico. O importador grava **todos** os estabelecimentos do estado (matriz + filiais), sem amostragem. É *idempotente*: se cair no meio, rode de novo e ele complementa sem duplicar (índice `unique` no CNPJ).
 
 **2. Dashboard com varredura total** — o painel *Varredura completa* mostra a **contagem exata** do município e permite:
 - `BAIXAR TODAS (CSV)` — streaming direto do MongoDB, sem limite de linhas

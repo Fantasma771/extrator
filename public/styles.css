@@ -25,6 +25,12 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* O atributo [hidden] do HTML precisa vencer QUALQUER "display" definido nas
+   classes (.loader, .btn, .progress-wrap...). Sem o !important, um
+   ".loader { display: flex }" sobrescreve a regra do navegador e o elemento
+   fica visivel para sempre, mesmo com hidden=true. */
+[hidden] { display: none !important; }
+
 html, body {
   min-height: 100%;
   background: var(--bg);
@@ -429,3 +435,44 @@ a { color: var(--gold); text-decoration: none; }
 }
 .table-status { padding: 12px 16px; margin-top: 12px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: rgba(212,175,55,0.05); font-size: 0.82rem; color: var(--muted); }
 .table-status b { color: var(--gold-light); }
+
+/* ==========================================================================
+   PAINEL DE ADMINISTRACAO / IMPORTACAO
+   ========================================================================== */
+.btn-admin { padding: 9px 16px; font-size: 0.66rem; }
+.modal-xl { max-width: 1180px; }
+
+.admin-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.25fr); gap: 22px; }
+@media (max-width: 980px) { .admin-grid { grid-template-columns: 1fr; } }
+.admin-col { display: flex; flex-direction: column; gap: 18px; }
+
+.admin-block { padding: 18px; border-radius: var(--radius-sm); border: 1px solid rgba(212,175,55,0.16); background: rgba(212,175,55,0.03); }
+.admin-block h4 { font-size: 0.76rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 14px; display: flex; align-items: center; gap: 9px; }
+
+.admin-diag { display: grid; gap: 8px; font-size: 0.86rem; }
+.admin-diag .linha { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 8px; background: rgba(0,0,0,0.35); }
+.admin-diag .linha b { color: var(--gold-light); font-family: 'Orbitron', monospace; font-size: 0.8rem; }
+.admin-diag .ufs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.admin-diag .ufs span { padding: 3px 9px; border-radius: 6px; background: rgba(212,175,55,0.1); border: 1px solid var(--line); font-size: 0.72rem; color: var(--gold-light); }
+
+.switches-col { flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; }
+.modal-actions-left { justify-content: flex-start; }
+
+.imp-stats { font-size: 0.86rem; color: var(--muted); line-height: 1.7; }
+.imp-stats b { color: var(--gold-light); font-family: 'Orbitron', monospace; }
+.imp-log {
+  margin-top: 12px; max-height: 220px; overflow-y: auto; padding: 12px;
+  border-radius: 10px; background: #050505; border: 1px solid rgba(212,175,55,0.14);
+  font-family: 'Courier New', monospace; font-size: 0.74rem; line-height: 1.6; color: #b9b3a4; white-space: pre-wrap; word-break: break-word;
+}
+.imp-historico { display: grid; gap: 10px; max-height: 260px; overflow-y: auto; }
+.imp-item { padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(212,175,55,0.14); background: rgba(0,0,0,0.3); font-size: 0.82rem; }
+.imp-item .topo { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.imp-item .uf { font-family: 'Orbitron', sans-serif; color: var(--gold-light); font-size: 0.82rem; letter-spacing: 0.1em; }
+.imp-item .quando { color: #6e695c; font-size: 0.72rem; }
+.imp-item .resumo { color: var(--muted); }
+.status-tag { padding: 3px 10px; border-radius: 999px; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; }
+.st-executando { color: var(--gold); background: rgba(212,175,55,0.14); border: 1px solid var(--line-strong); }
+.st-concluido { color: var(--green); background: rgba(61,220,132,0.12); border: 1px solid rgba(61,220,132,0.4); }
+.st-erro, .st-interrompido { color: var(--red); background: rgba(255,95,95,0.12); border: 1px solid rgba(255,95,95,0.4); }
+.st-cancelado { color: var(--amber); background: rgba(255,176,32,0.12); border: 1px solid rgba(255,176,32,0.4); }

@@ -7,6 +7,9 @@
 const state = {
   apiBase: localStorage.getItem('cnpj_api_base') || '',
   apiKey: localStorage.getItem('cnpj_api_key') || '',
+  adminToken: localStorage.getItem('cnpj_admin_token') || '',
+  jobSse: null,
+  jobAtual: null,
   meta: null,
   tipos: [],
   page: 1,
@@ -74,7 +77,23 @@ function toast(msg, tipo = '', ms = 4200) {
   }, ms);
 }
 
-function loader(on) { $('#loader').hidden = !on; }
+let loaderWatchdog = null;
+
+function loader(on) {
+  const el = $('#loader');
+  if (!el) return;
+  el.hidden = !on;
+  clearTimeout(loaderWatchdog);
+  if (on) {
+    // Rede de seguranca: nenhuma tela de carregamento pode ficar presa
+    loaderWatchdog = setTimeout(() => {
+      if (!el.hidden) {
+        el.hidden = true;
+        toast('A operacao demorou demais e foi interrompida. Verifique a conexao com o banco.', 'err', 9000);
+      }
+    }, 45000);
+  }
+}
 
 function setStatus(tipo, texto) {
   $('#statusPill').className = `status-pill ${tipo || ''}`;
@@ -109,8 +128,28 @@ function cabecalhos() {
   return h;
 }
 
+/** Combina o signal recebido com um timeout, para nenhuma requisicao travar para sempre */
+function comTimeout(signal, ms = 25000) {
+  try {
+    const t = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : null;
+    if (!t) return signal;
+    if (signal && AbortSignal.any) return AbortSignal.any([signal, t]);
+    return signal || t;
+  } catch (_) {
+    return signal;
+  }
+}
+
 async function api(caminho, params, signal) {
-  const resp = await fetch(montarUrl(caminho, params), { headers: cabecalhos(), signal });
+  let resp;
+  try {
+    resp = await fetch(montarUrl(caminho, params), { headers: cabecalhos(), signal: comTimeout(signal) });
+  } catch (e) {
+    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new Error('Tempo esgotado ao falar com a API (25s). O servidor ou o banco podem estar lentos.');
+    }
+    throw new Error(`Nao foi possivel alcancar a API (${e.message || 'erro de rede'}).`);
+  }
   if (resp.status === 401) throw new Error('NAO_AUTORIZADO');
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`;
@@ -154,14 +193,13 @@ function descreverAlvo(f) {
 /* ----------------------------- BUSCA ----------------------------- */
 async function buscar(resetPagina = true) {
   if (resetPagina) state.page = 1;
-  sairModoTudo(false);
   loader(true);
 
-  const filtros = lerFiltros();
-  state.ultimaConsulta = filtros;
-  state.ordenar = filtros.ordenar;
-
   try {
+    sairModoTudo(false);
+    const filtros = lerFiltros();
+    state.ultimaConsulta = filtros;
+    state.ordenar = filtros.ordenar;
     const params = { ...filtros, page: state.page, limit: state.limit };
 
     const [res, stats, contagem] = await Promise.all([
@@ -712,6 +750,7 @@ async function carregarMunicipios(termo) {
 function abrirConfig() {
   $('#cfgApiBase').value = state.apiBase;
   $('#cfgApiKey').value = state.apiKey;
+  $('#cfgAdminToken').value = state.adminToken;
   $('#cfgStatus').textContent = '';
   $('#modalConfig').classList.add('open');
 }
@@ -737,6 +776,184 @@ async function testarConexao() {
   }
 }
 
+/* ----------------------------- ADMIN / IMPORTACAO ----------------------------- */
+function adminHeaders() {
+  const h = cabecalhos();
+  if (state.adminToken) h['x-admin-token'] = state.adminToken;
+  return h;
+}
+
+async function apiAdmin(caminho, opcoes = {}) {
+  const resp = await fetch(montarUrl(caminho, opcoes.params), {
+    method: opcoes.method || 'GET',
+    headers: { ...adminHeaders(), ...(opcoes.body ? { 'Content-Type': 'application/json' } : {}) },
+    body: opcoes.body ? JSON.stringify(opcoes.body) : undefined,
+  });
+  let json = null;
+  try { json = await resp.json(); } catch (_) { /* ignore */ }
+  if (!resp.ok) {
+    const err = new Error((json && (json.message || json.error)) || `HTTP ${resp.status}`);
+    err.code = json && json.error;
+    err.status = resp.status;
+    throw err;
+  }
+  return json;
+}
+
+function abrirAdmin() {
+  $('#modalAdmin').classList.add('open');
+  carregarDiag();
+  carregarHistorico();
+}
+
+function fmtDuracao(ms) {
+  if (!ms) return '—';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}min ${s % 60}s`;
+  return `${Math.floor(m / 60)}h ${m % 60}min`;
+}
+
+async function carregarDiag() {
+  const el = $('#adminDiag');
+  el.innerHTML = 'carregando...';
+  try {
+    const { data } = await apiAdmin('/api/admin/diagnostico');
+    const ufs = data.base.porUf.slice(0, 12).map((u) => `<span>${esc(u.uf)}: ${fmtNum(u.total)}</span>`).join('');
+    el.innerHTML = `
+      <div class="linha"><span>Empresas na base</span><b>${fmtNum(data.base.total)}</b></div>
+      <div class="linha"><span>Municipios mapeados</span><b>${fmtNum(data.base.municipios)}</b></div>
+      <div class="linha"><span>Fonte de dados</span><b style="font-size:0.68rem">${esc(data.servidor.fonteDados)}</b></div>
+      <div class="linha"><span>Servidor</span><b>${esc(data.servidor.node)} · ${data.servidor.memoriaMB} MB · ${fmtDuracao(data.servidor.uptime * 1000)}</b></div>
+      <div class="linha"><span>Painel protegido</span><b>${data.servidor.adminProtegido ? 'SIM' : 'NAO'}</b></div>
+      ${ufs ? `<div class="ufs">${ufs}</div>` : ''}
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="linha"><span style="color:var(--red)">${esc(e.message)}</span></div>`;
+    if (e.code === 'ADMIN_TOKEN_NAO_CONFIGURADO') {
+      el.innerHTML += `<div class="linha"><span style="font-size:0.78rem;color:var(--muted)">Defina a variavel <b>ADMIN_TOKEN</b> no Render (Environment) e cole o mesmo valor em ⚙ Configuracoes.</span></div>`;
+    }
+  }
+}
+
+function renderJob(job, ativo) {
+  state.jobAtual = job;
+  if (!job) return;
+
+  const p = job.progresso || {};
+  const st = $('#impStats');
+  const cores = { executando: 'st-executando', concluido: 'st-concluido', erro: 'st-erro', cancelado: 'st-cancelado', interrompido: 'st-interrompido' };
+
+  const duracao = job.finalizadoEm ? (new Date(job.finalizadoEm) - new Date(job.iniciadoEm)) : (Date.now() - new Date(job.iniciadoEm));
+
+  st.innerHTML = `
+    <div>Status: <span class="status-tag ${cores[job.status] || ''}">${esc(job.status)}</span></div>
+    <div>Fase: <b>${esc(job.fase || '—')}</b> ${p.totalArquivos ? `(${p.arquivoNumero || 0}/${p.totalArquivos})` : ''}</div>
+    ${p.arquivo ? `<div>Arquivo: <b>${esc(p.arquivo)}</b></div>` : ''}
+    <div>Linhas lidas: <b>${fmtNum(p.linhasLidas || 0)}</b> · Registros gravados: <b>${fmtNum(p.gravados || 0)}</b></div>
+    <div>Tempo: <b>${fmtDuracao(duracao)}</b>${job.resultado ? ` · ${fmtNum(job.resultado.empresas)} empresas na base` : ''}</div>
+    ${job.erro ? `<div style="color:var(--red)">${esc(job.erro)}</div>` : ''}
+  `;
+
+  if (job.status === 'executando') {
+    $('#impProgressWrap').hidden = false;
+    const pct = Math.min(((job.faseNumero || 0) / (job.totalFases || 5)) * 100 + (p.totalArquivos ? (p.arquivoNumero / p.totalArquivos) * 20 : 0), 99);
+    $('#impFill').style.width = `${pct}%`;
+    $('#impFase').textContent = `${job.fase || 'iniciando'} — ${pct.toFixed(0)}%`;
+    $('#impTempo').textContent = fmtDuracao(duracao);
+  } else {
+    $('#impProgressWrap').hidden = job.status === 'concluido' ? false : $('#impProgressWrap').hidden;
+    if (job.status === 'concluido') { $('#impFill').style.width = '100%'; $('#impFase').textContent = 'concluído'; }
+  }
+
+  $('#impLog').textContent = (job.log || []).join('\n');
+  $('#impLog').scrollTop = $('#impLog').scrollHeight;
+  $('#btnCancelarImport').hidden = !ativo;
+  $('#btnImportar').disabled = !!ativo;
+}
+
+async function carregarHistorico() {
+  const el = $('#impHistorico');
+  try {
+    const r = await apiAdmin('/api/admin/imports');
+    if (!r.data.length) { el.innerHTML = '<div class="imp-item"><span class="resumo">Nenhuma importacao registrada ainda.</span></div>'; return; }
+    el.innerHTML = r.data.map((j) => `
+      <div class="imp-item">
+        <div class="topo">
+          <span class="uf">${esc(j.uf || 'TODAS')}</span>
+          <span class="status-tag st-${esc(j.status)}">${esc(j.status)}</span>
+        </div>
+        <div class="resumo">
+          ${j.resultado ? `${fmtNum(j.resultado.empresas)} empresas · ${fmtNum(j.resultado.socios)} socios · ` : ''}
+          ${esc(j.fase || '')}
+        </div>
+        <div class="quando">${new Date(j.iniciadoEm).toLocaleString('pt-BR')}${j.resultado ? ` · ${fmtDuracao(j.resultado.duracaoMs)}` : ''}</div>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="imp-item"><span class="resumo" style="color:var(--red)">${esc(e.message)}</span></div>`;
+  }
+}
+
+function acompanharJob(id) {
+  if (state.jobSse) { state.jobSse.close(); state.jobSse = null; }
+  const url = montarUrl(`/api/admin/import/${id}/eventos`, { token: state.adminToken || state.apiKey });
+  const es = new EventSource(url);
+  state.jobSse = es;
+
+  es.onmessage = (ev) => {
+    try {
+      const { job, ativo } = JSON.parse(ev.data);
+      renderJob(job, ativo);
+      if (!ativo) { es.close(); state.jobSse = null; carregarHistorico(); carregarDiag(); }
+    } catch (_) { /* ignore */ }
+  };
+  es.addEventListener('fim', () => { es.close(); state.jobSse = null; carregarHistorico(); carregarDiag(); });
+  es.onerror = () => { /* reconecta sozinho */ };
+}
+
+async function iniciarImportacao() {
+  const uf = $('#impUf').value;
+  const limit = Number($('#impLimit').value) || 0;
+  const drop = $('#impDrop').checked;
+
+  if (!uf && !limit) {
+    const ok = window.confirm('Você escolheu TODO O BRASIL. Isso baixa dezenas de GB e pode levar muitas horas (e estourar o plano do MongoDB). Continuar?');
+    if (!ok) return;
+  }
+  if (drop) {
+    const ok = window.confirm('ATENÇÃO: "Apagar a base antes" vai REMOVER todas as empresas já importadas. Continuar?');
+    if (!ok) return;
+  }
+
+  $('#btnImportar').disabled = true;
+  $('#impLog').textContent = 'iniciando...';
+
+  try {
+    const r = await apiAdmin('/api/admin/import', {
+      method: 'POST',
+      body: { uf, limit, drop, skipSocios: $('#impSkipSocios').checked, skipSimples: $('#impSkipSimples').checked, remoto: true },
+    });
+    toast(r.message, 'ok', 7000);
+    $('#btnCancelarImport').hidden = false;
+    acompanharJob(r.data.id);
+  } catch (e) {
+    $('#btnImportar').disabled = false;
+    toast(`Nao foi possivel iniciar: ${e.message}`, 'err', 8000);
+    if (e.code === 'ADMIN_TOKEN_NAO_CONFIGURADO' || e.code === 'NAO_AUTORIZADO') abrirConfig();
+  }
+}
+
+async function cancelarImportacao() {
+  if (!state.jobAtual) return;
+  try {
+    await apiAdmin(`/api/admin/import/${state.jobAtual._id}/cancelar`, { method: 'POST' });
+    toast('Cancelamento solicitado — aguardando o lote atual terminar.', '', 6000);
+  } catch (e) {
+    toast(`Falha ao cancelar: ${e.message}`, 'err');
+  }
+}
+
 /* ----------------------------- INIT ----------------------------- */
 async function carregarMeta() {
   try {
@@ -752,6 +969,12 @@ async function carregarMeta() {
       opt.textContent = comDados.has(uf) ? `${uf} ●` : uf;
       selUf.appendChild(opt);
     });
+
+    const selImp = $('#impUf');
+    if (selImp) {
+      selImp.innerHTML = '<option value="">— TODO O BRASIL (muito pesado) —</option>' +
+        (data.ufs || []).map((uf) => `<option value="${uf}">${uf}${comDados.has(uf) ? ' ● (ja importado)' : ''}</option>`).join('');
+    }
 
     const chips = $('#tipoChips');
     chips.innerHTML = (data.tipos || []).map((t) => `<button class="tipo-chip" data-tipo="${esc(t)}">${esc(t)}</button>`).join('');
@@ -861,13 +1084,21 @@ function bindEventos() {
   $$('.modal-overlay').forEach((ov) => ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); }));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $$('.modal-overlay').forEach((m) => m.classList.remove('open')); });
 
+  // Administracao / importacao
+  $('#btnAdmin').addEventListener('click', abrirAdmin);
+  $('#btnImportar').addEventListener('click', iniciarImportacao);
+  $('#btnCancelarImport').addEventListener('click', cancelarImportacao);
+  $('#btnAtualizarDiag').addEventListener('click', () => { carregarDiag(); carregarHistorico(); });
+
   $('#btnSettings').addEventListener('click', abrirConfig);
   $('#btnTestarConexao').addEventListener('click', testarConexao);
   $('#btnSalvarConfig').addEventListener('click', () => {
     state.apiBase = $('#cfgApiBase').value.trim().replace(/\/+$/, '');
     state.apiKey = $('#cfgApiKey').value.trim();
+    state.adminToken = $('#cfgAdminToken').value.trim();
     localStorage.setItem('cnpj_api_base', state.apiBase);
     localStorage.setItem('cnpj_api_key', state.apiKey);
+    localStorage.setItem('cnpj_admin_token', state.adminToken);
     $('#modalConfig').classList.remove('open');
     toast('Configuracoes salvas.', 'ok');
     carregarMeta().then(() => buscar(true));
@@ -877,11 +1108,29 @@ function bindEventos() {
 }
 
 async function init() {
-  relogio();
-  setInterval(relogio, 1000);
-  bindEventos();
-  await carregarMeta();
-  await buscar(true);
+  try {
+    relogio();
+    setInterval(relogio, 1000);
+    bindEventos();
+    await carregarMeta();
+    await buscar(true);
+  } catch (e) {
+    console.error('[init]', e);
+    setStatus('err', 'Erro ao iniciar');
+    toast(`Falha ao iniciar o dashboard: ${e.message}`, 'err', 9000);
+  } finally {
+    loader(false);
+  }
 }
+
+/* Rede de seguranca global: qualquer erro inesperado nunca deixa a tela presa */
+window.addEventListener('unhandledrejection', (ev) => {
+  console.error('[promise]', ev.reason);
+  loader(false);
+});
+window.addEventListener('error', (ev) => {
+  console.error('[erro]', ev.error || ev.message);
+  loader(false);
+});
 
 document.addEventListener('DOMContentLoaded', init);

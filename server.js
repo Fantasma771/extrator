@@ -10,6 +10,8 @@ const helmet = require('helmet');
 
 const { connect, isConnected } = require('./src/db');
 const apiRoutes = require('./src/routes/api');
+const adminRoutes = require('./src/routes/admin');
+const importador = require('./src/services/importador');
 const { apiKeyAuth } = require('./src/middleware/auth');
 
 const app = express();
@@ -59,6 +61,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 
 // Dashboard
@@ -81,16 +84,20 @@ app.use((err, req, res, _next) => {
 async function iniciar() {
   try {
     await connect();
+    // Jobs que estavam rodando quando o servidor reiniciou ficam marcados como interrompidos
+    await importador.limparJobsOrfaos();
   } catch (erro) {
     console.error('[db] falha ao conectar:', erro.message);
     console.error('[db] o servidor vai subir mesmo assim; o dashboard mostrara o banco como desconectado.');
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n  Buscador de Empresas BR`);
+    console.log('\n  Buscador de Empresas BR');
     console.log(`  Dashboard: http://localhost:${PORT}`);
     console.log(`  API:       http://localhost:${PORT}/api/companies`);
-    console.log(`  Ambiente:  ${process.env.NODE_ENV || 'development'}\n`);
+    console.log(`  Painel:    http://localhost:${PORT}/api/admin/diagnostico`);
+    console.log(`  Ambiente:  ${process.env.NODE_ENV || 'development'}`);
+    console.log(`  Admin:     ${process.env.ADMIN_TOKEN || process.env.API_KEY ? 'protegido por token' : 'BLOQUEADO (defina ADMIN_TOKEN)'}\n`);
   });
 }
 
